@@ -3,7 +3,7 @@ replicaCount: 1
 
 image:
   registry: ghcr.io
-  repository: yourusername/careflow-mini
+  repository: Sotiris-Bekiaris/careflow-mini
   pullPolicy: IfNotPresent
   tag: "latest"
 

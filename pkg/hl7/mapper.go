@@ -1,7 +1,7 @@
 package hl7
 
 import (
-	"github.com/yourusername/careflow-mini/pkg/fhir"
+	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/fhir"
 )
 
 // MapToFHIRObservation converts an HL7 ORU^R01 message to a FHIR Observation

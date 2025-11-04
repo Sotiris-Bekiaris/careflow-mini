@@ -4,7 +4,7 @@ package appointment.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/yourusername/careflow-mini/proto/appointment/v1;appointmentv1";
+option go_package = "github.com/Sotiris-Bekiaris/careflow-mini/proto/appointment/v1;appointmentv1";
 
 // AppointmentService handles appointment scheduling operations
 service AppointmentService {

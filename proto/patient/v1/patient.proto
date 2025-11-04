@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package patient.v1;
 
-option go_package = "github.com/yourusername/careflow-mini/proto/patient/v1;patientv1";
+option go_package = "github.com/Sotiris-Bekiaris/careflow-mini/proto/patient/v1;patientv1";
 
 // PatientService handles patient CRUD operations
 service PatientService {

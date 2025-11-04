@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/yourusername/careflow-mini
+name: buf.build/Sotiris-Bekiaris/careflow-mini
 deps:
   - buf.build/googleapis/googleapis
 breaking:

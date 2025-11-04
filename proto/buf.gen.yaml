@@ -2,7 +2,7 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/yourusername/careflow-mini/proto
+    default: github.com/Sotiris-Bekiaris/careflow-mini/proto
 plugins:
   - plugin: buf.build/protocolbuffers/go
     out: .
