@@ -55,7 +55,7 @@ func (m *Metrics) RecordRequest(ctx context.Context, labels ...metric.AddOption)
 }
 
 // RecordDuration records a request duration metric
-func (m *Metrics) RecordDuration(ctx context.Context, duration float64, labels ...metric.AddOption) {
+func (m *Metrics) RecordDuration(ctx context.Context, duration float64, labels ...metric.RecordOption) {
 	m.RequestDuration.Record(ctx, duration, labels...)
 }
 
