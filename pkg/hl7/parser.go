@@ -7,7 +7,7 @@ import (
 
 // Message represents a parsed HL7 message
 type Message struct {
-	Type     string              // Message type (e.g., "ORU^R01")
+	Type     string // Message type (e.g., "ORU^R01")
 	Segments []Segment
 	Raw      string
 }

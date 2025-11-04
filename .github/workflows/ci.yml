@@ -56,7 +56,7 @@ jobs:
 
       - name: Buf breaking change detection
         if: github.event_name == 'pull_request'
-        run: cd proto && buf breaking --against '../.git#branch=main'
+        run: cd proto && buf breaking --against '../.git#branch=origin/main'
 
   test:
     name: Test
