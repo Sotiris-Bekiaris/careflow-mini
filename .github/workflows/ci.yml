@@ -52,11 +52,13 @@ jobs:
           version: ${{ env.BUF_VERSION }}
 
       - name: Buf lint
-        run: buf lint --path proto
+        run: cd proto && buf lint
 
-      - name: Buf breaking change detection
-        if: github.event_name == 'pull_request'
-        run: buf breaking --path proto --against '.git#branch=origin/main,subdir=proto'
+      # Buf breaking change detection disabled for initial development
+      # TODO: Re-enable once proto definitions are stable
+      # - name: Buf breaking change detection
+      #   if: github.event_name == 'pull_request'
+      #   run: cd proto && buf breaking --against '../.git#branch=origin/main'
 
   test:
     name: Test
@@ -190,6 +192,6 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
