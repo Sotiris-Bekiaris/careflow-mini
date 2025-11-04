@@ -40,7 +40,7 @@ lint:
 # Generate protobuf code
 proto:
 	@echo "Generating protobuf code..."
-	@buf generate
+	@cd proto && buf generate
 
 # Clean build artifacts
 clean:
