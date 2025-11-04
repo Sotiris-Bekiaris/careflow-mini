@@ -5,17 +5,21 @@ import (
 	"log"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
-// InitTracer initializes the OpenTelemetry tracer
-func InitTracer(serviceName, jaegerEndpoint string) (func(context.Context) error, error) {
-	// Create Jaeger exporter
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerEndpoint)))
+// InitTracer initializes the OpenTelemetry tracer with OTLP exporter
+func InitTracer(serviceName, otlpEndpoint string) (func(context.Context) error, error) {
+	// Create OTLP HTTP exporter
+	exp, err := otlptracehttp.New(
+		context.Background(),
+		otlptracehttp.WithEndpoint(otlpEndpoint),
+		otlptracehttp.WithInsecure(), // For local development
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +36,7 @@ func InitTracer(serviceName, jaegerEndpoint string) (func(context.Context) error
 	// Register as global tracer provider
 	otel.SetTracerProvider(tp)
 
-	log.Printf("OpenTelemetry tracer initialized for service: %s", serviceName)
+	log.Printf("OpenTelemetry tracer initialized for service: %s with OTLP endpoint: %s", serviceName, otlpEndpoint)
 
 	return tp.Shutdown, nil
 }

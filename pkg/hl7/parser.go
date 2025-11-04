@@ -7,7 +7,7 @@ import (
 
 // Message represents a parsed HL7 message
 type Message struct {
-	Type     string              // Message type (e.g., "ORU^R01")
+	Type     string // Message type (e.g., "ORU^R01")
 	Segments []Segment
 	Raw      string
 }
@@ -41,9 +41,6 @@ func Parse(message string) (*Message, error) {
 		}
 
 		fields := strings.Split(line, "|")
-		if len(fields) < 1 {
-			continue
-		}
 
 		segment := Segment{
 			Name:   fields[0],

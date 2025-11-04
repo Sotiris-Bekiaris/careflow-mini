@@ -22,14 +22,12 @@ func MapToFHIRObservation(msg *Message) (*fhir.Observation, error) {
 	}
 
 	// Extract observation data from OBX segments
-	obxSegments := msg.GetSegments("OBX")
-	if len(obxSegments) > 0 {
-		// TODO: Map OBX fields to FHIR Observation
-		// OBX-3: Observation Identifier
-		// OBX-5: Observation Value
-		// OBX-6: Units
-		// OBX-7: Reference Range
-	}
+	// TODO: Map OBX fields to FHIR Observation when implementing full HL7 mapping
+	// OBX-3: Observation Identifier
+	// OBX-5: Observation Value
+	// OBX-6: Units
+	// OBX-7: Reference Range
+	_ = msg.GetSegments("OBX") // Reserved for future OBX segment mapping
 
 	return obs, nil
 }

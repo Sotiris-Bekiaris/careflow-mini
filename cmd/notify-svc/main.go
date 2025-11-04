@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/events"
 )
 
 func main() {
@@ -22,14 +24,32 @@ func main() {
 
 	// Event listener placeholder
 	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+
+		// Sample event data for testing
+		sampleEvent := map[string]interface{}{
+			"id":        "event-123",
+			"type":      events.ObservationCreated,
+			"timestamp": time.Now(),
+			"source":    "lab-adapter",
+			"data": map[string]interface{}{
+				"observation": map[string]interface{}{
+					"patient_id": "12345",
+					"test_type":  "CBC",
+					"status":     "final",
+				},
+			},
+		}
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			default:
-				// TODO: Listen for events from NATS
-				time.Sleep(5 * time.Second)
-				log.Println("Notify Service: Waiting for events...")
+			case <-ticker.C:
+				// Process sample observation event
+				log.Println("Notify Service: Received ObservationCreated event...")
+				handleObservationCreated(sampleEvent)
 			}
 		}
 	}()
@@ -46,7 +66,34 @@ func main() {
 }
 
 func handleObservationCreated(event map[string]interface{}) {
-	// TODO: Parse event
-	// TODO: Send notification
-	log.Printf("Handling ObservationCreated event: %v", event)
+	// Parse event data
+	eventType, ok := event["type"].(events.EventType)
+	if !ok {
+		log.Printf("Invalid event type")
+		return
+	}
+
+	log.Printf("Processing event type: %s", eventType)
+
+	// Extract observation data
+	data, ok := event["data"].(map[string]interface{})
+	if !ok {
+		log.Printf("Invalid event data")
+		return
+	}
+
+	observation, ok := data["observation"].(map[string]interface{})
+	if !ok {
+		log.Printf("No observation found in event data")
+		return
+	}
+
+	// Extract patient information
+	patientID, _ := observation["patient_id"].(string)
+	testType, _ := observation["test_type"].(string)
+	status, _ := observation["status"].(string)
+
+	// TODO: Send actual notifications (email, SMS, push notification)
+	log.Printf("Notification: New %s test result for patient %s (Status: %s)", testType, patientID, status)
+	log.Printf("Would send notification to patient %s about their %s results", patientID, testType)
 }

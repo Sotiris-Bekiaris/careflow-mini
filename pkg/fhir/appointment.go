@@ -4,14 +4,14 @@ import "time"
 
 // Appointment represents a FHIR R4 Appointment resource (simplified)
 type Appointment struct {
-	ID          string        `json:"id"`
-	Status      string        `json:"status"` // proposed, pending, booked, arrived, fulfilled, cancelled
+	ID          string            `json:"id"`
+	Status      string            `json:"status"` // proposed, pending, booked, arrived, fulfilled, cancelled
 	ServiceType []CodeableConcept `json:"serviceType,omitempty"`
-	Start       time.Time     `json:"start"`
-	End         time.Time     `json:"end"`
-	Participant []Participant `json:"participant"`
-	Description string        `json:"description,omitempty"`
-	Meta        Meta          `json:"meta"`
+	Start       time.Time         `json:"start"`
+	End         time.Time         `json:"end"`
+	Participant []Participant     `json:"participant"`
+	Description string            `json:"description,omitempty"`
+	Meta        Meta              `json:"meta"`
 }
 
 // Participant represents an appointment participant
