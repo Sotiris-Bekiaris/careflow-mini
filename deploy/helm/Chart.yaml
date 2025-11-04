@@ -1,0 +1,14 @@
+apiVersion: v2
+name: careflow-mini
+description: A Helm chart for CareFlow-Mini healthcare microservices
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - healthcare
+  - fhir
+  - microservices
+  - golang
+maintainers:
+  - name: Your Name
+    email: your.email@example.com

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package appointment.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/yourusername/careflow-mini/proto/appointment/v1;appointmentv1";
+
+// AppointmentService handles appointment scheduling operations
+service AppointmentService {
+  // CreateAppointment creates a new appointment
+  rpc CreateAppointment(CreateAppointmentRequest) returns (CreateAppointmentResponse);
+
+  // GetAppointment retrieves an appointment by ID
+  rpc GetAppointment(GetAppointmentRequest) returns (GetAppointmentResponse);
+
+  // ListAppointments lists appointments
+  rpc ListAppointments(ListAppointmentsRequest) returns (ListAppointmentsResponse);
+
+  // CancelAppointment cancels an appointment
+  rpc CancelAppointment(CancelAppointmentRequest) returns (CancelAppointmentResponse);
+}
+
+// Appointment represents an appointment entity
+message Appointment {
+  string id = 1;
+  string status = 2; // proposed, pending, booked, arrived, fulfilled, cancelled
+  string patient_id = 3;
+  string practitioner_id = 4;
+  google.protobuf.Timestamp start = 5;
+  google.protobuf.Timestamp end = 6;
+  string service_type = 7;
+  string description = 8;
+}
+
+// CreateAppointmentRequest represents a request to create an appointment
+message CreateAppointmentRequest {
+  Appointment appointment = 1;
+}
+
+// CreateAppointmentResponse represents a response from creating an appointment
+message CreateAppointmentResponse {
+  Appointment appointment = 1;
+}
+
+// GetAppointmentRequest represents a request to get an appointment
+message GetAppointmentRequest {
+  string id = 1;
+}
+
+// GetAppointmentResponse represents a response from getting an appointment
+message GetAppointmentResponse {
+  Appointment appointment = 1;
+}
+
+// ListAppointmentsRequest represents a request to list appointments
+message ListAppointmentsRequest {
+  string patient_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+// ListAppointmentsResponse represents a response from listing appointments
+message ListAppointmentsResponse {
+  repeated Appointment appointments = 1;
+  string next_page_token = 2;
+}
+
+// CancelAppointmentRequest represents a request to cancel an appointment
+message CancelAppointmentRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+// CancelAppointmentResponse represents a response from cancelling an appointment
+message CancelAppointmentResponse {
+  Appointment appointment = 1;
+}

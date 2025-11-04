@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package patient.v1;
+
+option go_package = "github.com/yourusername/careflow-mini/proto/patient/v1;patientv1";
+
+// PatientService handles patient CRUD operations
+service PatientService {
+  // CreatePatient creates a new patient record
+  rpc CreatePatient(CreatePatientRequest) returns (CreatePatientResponse);
+
+  // GetPatient retrieves a patient by ID
+  rpc GetPatient(GetPatientRequest) returns (GetPatientResponse);
+
+  // UpdatePatient updates an existing patient record
+  rpc UpdatePatient(UpdatePatientRequest) returns (UpdatePatientResponse);
+
+  // ListPatients lists all patients
+  rpc ListPatients(ListPatientsRequest) returns (ListPatientsResponse);
+}
+
+// Patient represents a patient entity
+message Patient {
+  string id = 1;
+  string family_name = 2;
+  repeated string given_names = 3;
+  string gender = 4;
+  string birth_date = 5;
+  repeated Contact telecom = 6;
+  Address address = 7;
+  bool active = 8;
+}
+
+// Contact represents contact information
+message Contact {
+  string system = 1; // phone, email, fax
+  string value = 2;
+  string use = 3; // home, work, mobile
+}
+
+// Address represents a physical address
+message Address {
+  repeated string line = 1;
+  string city = 2;
+  string state = 3;
+  string postal_code = 4;
+  string country = 5;
+}
+
+// CreatePatientRequest represents a request to create a patient
+message CreatePatientRequest {
+  Patient patient = 1;
+}
+
+// CreatePatientResponse represents a response from creating a patient
+message CreatePatientResponse {
+  Patient patient = 1;
+}
+
+// GetPatientRequest represents a request to get a patient
+message GetPatientRequest {
+  string id = 1;
+}
+
+// GetPatientResponse represents a response from getting a patient
+message GetPatientResponse {
+  Patient patient = 1;
+}
+
+// UpdatePatientRequest represents a request to update a patient
+message UpdatePatientRequest {
+  Patient patient = 1;
+}
+
+// UpdatePatientResponse represents a response from updating a patient
+message UpdatePatientResponse {
+  Patient patient = 1;
+}
+
+// ListPatientsRequest represents a request to list patients
+message ListPatientsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+// ListPatientsResponse represents a response from listing patients
+message ListPatientsResponse {
+  repeated Patient patients = 1;
+  string next_page_token = 2;
+}
