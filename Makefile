@@ -1,4 +1,4 @@
-.PHONY: help build test lint clean run-dev proto docker-up docker-down
+.PHONY: help build test lint clean run-dev stop-dev proto docker-up docker-down
 
 # Default target
 help:
@@ -10,6 +10,7 @@ help:
 	@echo "  make lint        - Run linters"
 	@echo "  make proto       - Generate protobuf code"
 	@echo "  make run-dev     - Start local dev environment"
+	@echo "  make stop-dev    - Stop local dev services"
 	@echo "  make docker-up   - Start Docker Compose stack"
 	@echo "  make docker-down - Stop Docker Compose stack"
 	@echo "  make clean       - Clean build artifacts"
@@ -58,7 +59,18 @@ docker-down:
 	@echo "Stopping Docker Compose stack..."
 	@docker-compose -f deploy/compose/docker-compose.yml down
 
+# Stop local dev services
+stop-dev:
+	@echo "Stopping local development services..."
+	@chmod +x scripts/stop-services.sh
+	@./scripts/stop-services.sh
+
 # Run local dev environment
-run-dev: docker-up
+run-dev: docker-up build
 	@echo "Starting local development environment..."
-	@echo "Services will be available soon..."
+	@chmod +x scripts/run-services.sh scripts/stop-services.sh
+	@./scripts/run-services.sh
+	@echo ""
+	@echo "Development environment is ready!"
+	@echo "API Gateway: http://localhost:8080"
+	@echo "To stop services: make stop-dev"
