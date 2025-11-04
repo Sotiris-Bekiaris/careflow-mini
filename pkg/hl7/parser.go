@@ -41,9 +41,6 @@ func Parse(message string) (*Message, error) {
 		}
 
 		fields := strings.Split(line, "|")
-		if len(fields) < 1 {
-			continue
-		}
 
 		segment := Segment{
 			Name:   fields[0],
