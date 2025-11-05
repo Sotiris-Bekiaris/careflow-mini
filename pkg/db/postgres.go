@@ -10,15 +10,15 @@ import (
 
 // Config holds the PostgreSQL connection configuration.
 type Config struct {
-	Host            string
-	Port            int
-	User            string
-	Password        string
-	Database        string
-	MaxConns        int32
-	MinConns        int32
-	MaxConnLifetime time.Duration
-	MaxConnIdleTime time.Duration
+	Host              string
+	Port              int
+	User              string
+	Password          string
+	Database          string
+	MaxConns          int32
+	MinConns          int32
+	MaxConnLifetime   time.Duration
+	MaxConnIdleTime   time.Duration
 	HealthCheckPeriod time.Duration
 }
 
