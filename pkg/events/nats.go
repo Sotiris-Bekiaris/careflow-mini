@@ -149,19 +149,19 @@ func (s *natsSubscriber) Subscribe(eventType EventType, handler EventHandler) er
 		var event Event
 		if err := json.Unmarshal(msg.Data, &event); err != nil {
 			// Log error but acknowledge message to prevent redelivery
-			msg.Ack()
+			_ = msg.Ack()
 			return
 		}
 
 		// Process the event with the handler
 		if err := handler(event); err != nil {
 			// NACK the message for redelivery
-			msg.Nak()
+			_ = msg.Nak()
 			return
 		}
 
 		// Acknowledge successful processing
-		msg.Ack()
+		_ = msg.Ack()
 	}, nats.Durable(durableName), nats.ManualAck())
 
 	if err != nil {
