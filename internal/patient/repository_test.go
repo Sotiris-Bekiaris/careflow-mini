@@ -72,7 +72,7 @@ func TestRepositoryCreate(t *testing.T) {
 		{
 			name: "patient with ID",
 			patient: &fhir.Patient{
-				ID:     "test-id-123",
+				ID:     "550e8400-e29b-41d4-a716-446655440000",
 				Active: true,
 				Name: fhir.HumanName{
 					Family: "Smith",
