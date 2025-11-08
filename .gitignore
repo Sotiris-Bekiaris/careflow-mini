@@ -5,6 +5,14 @@
 *.so
 *.dylib
 
+# Service binaries
+*-svc
+patient-svc
+appointment-svc
+lab-adapter
+notify-svc
+api-gateway
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -45,10 +53,6 @@ logs/
 tmp/
 temp/
 
-# Generated protobuf files
-*.pb.go
-*_grpc.pb.go
-
 # Docker volumes
 .docker-data/
 
@@ -57,3 +61,6 @@ Thumbs.db
 
 # Claude Code configuration
 .claude/
+
+# CareFlow workflow tracking (local only)
+.careflow-workflow.md
