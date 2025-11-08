@@ -53,10 +53,6 @@ logs/
 tmp/
 temp/
 
-# Generated protobuf files
-*.pb.go
-*_grpc.pb.go
-
 # Docker volumes
 .docker-data/
 
