@@ -54,25 +54,25 @@ func main() {
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, `{"status":"healthy"}`)
+	_, _ = fmt.Fprintln(w, `{"status":"healthy"}`)
 }
 
 func readyHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check gRPC service connections
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, `{"status":"ready"}`)
+	_, _ = fmt.Fprintln(w, `{"status":"ready"}`)
 }
 
 func patientHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Forward to patient-svc via gRPC
 	w.WriteHeader(http.StatusNotImplemented)
-	fmt.Fprintln(w, `{"message":"Patient API - not implemented yet"}`)
+	_, _ = fmt.Fprintln(w, `{"message":"Patient API - not implemented yet"}`)
 }
 
 func appointmentHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Forward to appointment-svc via gRPC
 	w.WriteHeader(http.StatusNotImplemented)
-	fmt.Fprintln(w, `{"message":"Appointment API - not implemented yet"}`)
+	_, _ = fmt.Fprintln(w, `{"message":"Appointment API - not implemented yet"}`)
 }
 
 func getEnv(key, defaultValue string) string {
