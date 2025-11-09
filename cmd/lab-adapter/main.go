@@ -2,29 +2,88 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
+	labadapter "github.com/Sotiris-Bekiaris/careflow-mini/internal/lab-adapter"
+	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/db"
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/events"
-	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/hl7"
-	"github.com/google/uuid"
+	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/observability"
 )
 
 func main() {
-	// TODO: Initialize OpenTelemetry
-	// TODO: Connect to NATS
-	// TODO: Setup HL7 message listener/processor
-	// TODO: Implement HL7 ORU^R01 -> FHIR Observation mapping
+	ctx := context.Background()
 
-	log.Println("Lab Adapter starting...")
+	// Initialize OpenTelemetry
+	tracerProvider, err := observability.InitTracer("lab-adapter", getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"))
+	if err != nil {
+		log.Fatalf("Failed to initialize tracer: %v", err)
+	}
+	defer func() {
+		if err := tracerProvider(ctx); err != nil {
+			log.Printf("Error shutting down tracer provider: %v", err)
+		}
+	}()
 
-	// Worker loop placeholder
+	tracer := observability.GetTracer("lab-adapter")
+
+	// Initialize metrics
+	_, err = observability.InitMetrics("lab-adapter")
+	if err != nil {
+		log.Fatalf("Failed to initialize metrics: %v", err)
+	}
+
+	// Connect to PostgreSQL
+	dbConfig := db.Config{
+		Host:              getEnv("DB_HOST", "localhost"),
+		Port:              getEnvInt("DB_PORT", 5432),
+		User:              getEnv("DB_USER", "postgres"),
+		Password:          getEnv("DB_PASSWORD", "postgres"),
+		Database:          getEnv("DB_NAME", "careflow"),
+		MaxConns:          int32(getEnvInt("DB_MAX_CONNS", 25)),
+		MinConns:          int32(getEnvInt("DB_MIN_CONNS", 5)),
+		MaxConnLifetime:   time.Hour,
+		MaxConnIdleTime:   30 * time.Minute,
+		HealthCheckPeriod: time.Minute,
+	}
+
+	dbPool, err := db.NewPool(ctx, dbConfig)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer dbPool.Close()
+
+	log.Println("Connected to PostgreSQL")
+
+	// Initialize NATS publisher
+	natsConfig := events.NATSConfig{
+		URL:           getEnv("NATS_URL", "nats://localhost:4222"),
+		StreamName:    "CAREFLOW_EVENTS",
+		MaxReconnects: 10,
+	}
+
+	publisher, err := events.NewNATSPublisher(natsConfig)
+	if err != nil {
+		log.Fatalf("Failed to create NATS publisher: %v", err)
+	}
+	defer func() {
+		if err := publisher.Close(); err != nil {
+			log.Printf("Error closing publisher: %v", err)
+		}
+	}()
+
+	log.Println("Connected to NATS")
+
+	// Initialize lab adapter components
+	repo := labadapter.NewPostgresRepository(dbPool)
+	svc := labadapter.NewService(repo, publisher, tracer)
+
+	// Start worker loop
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
@@ -41,8 +100,11 @@ OBX|1|NM|WBC^White Blood Cell Count|1|7.5|10^3/uL|4.0-11.0|N|||F`
 			case <-ticker.C:
 				// Process sample HL7 message
 				log.Println("Lab Adapter: Processing HL7 message...")
-				if err := processHL7Message(sampleHL7); err != nil {
+				_, err := svc.ProcessHL7Message(ctx, sampleHL7)
+				if err != nil {
 					log.Printf("Error processing HL7 message: %v", err)
+				} else {
+					log.Println("HL7 message processed successfully")
 				}
 			case <-ctx.Done():
 				return
@@ -61,36 +123,18 @@ OBX|1|NM|WBC^White Blood Cell Count|1|7.5|10^3/uL|4.0-11.0|N|||F`
 	log.Println("Lab Adapter exited")
 }
 
-func processHL7Message(hl7Msg string) error {
-	// Parse HL7 ORU^R01
-	msg, err := hl7.Parse(hl7Msg)
-	if err != nil {
-		return fmt.Errorf("failed to parse HL7 message: %w", err)
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
+	return defaultValue
+}
 
-	log.Printf("Parsed HL7 message type: %s", msg.Type)
-
-	// Map to FHIR Observation
-	obs, err := hl7.MapToFHIRObservation(msg)
-	if err != nil {
-		return fmt.Errorf("failed to map HL7 to FHIR: %w", err)
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
 	}
-
-	log.Printf("Mapped to FHIR Observation for patient: %s", obs.Subject.Reference)
-
-	// Create ObservationCreated event
-	event := events.Event{
-		ID:        uuid.New().String(),
-		Type:      events.ObservationCreated,
-		Timestamp: time.Now(),
-		Source:    "lab-adapter",
-		Data: map[string]interface{}{
-			"observation": obs,
-		},
-	}
-
-	// TODO: Publish to NATS when publisher is available
-	log.Printf("Would publish ObservationCreated event: ID=%s, Patient=%s", event.ID, obs.Subject.Reference)
-
-	return nil
+	return defaultValue
 }
