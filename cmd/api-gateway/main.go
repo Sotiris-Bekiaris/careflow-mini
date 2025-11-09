@@ -2,37 +2,97 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/fhir"
+	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/observability"
+	patientv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/patient/v1"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
+type server struct {
+	patientClient patientv1.PatientServiceClient
+	tracer        trace.Tracer
+}
+
 func main() {
-	// TODO: Initialize OpenTelemetry
-	// TODO: Connect to gRPC services (patient-svc, appointment-svc)
-	// TODO: Setup REST routes with FHIR-style endpoints
+	ctx := context.Background()
+
+	// Initialize OpenTelemetry
+	otlpEndpoint := getEnv("OTLP_ENDPOINT", "http://localhost:4318")
+	shutdownTracer, err := observability.InitTracer("api-gateway", otlpEndpoint)
+	if err != nil {
+		log.Printf("Failed to initialize tracer: %v", err)
+	}
+	if shutdownTracer != nil {
+		defer func() {
+			if err := shutdownTracer(ctx); err != nil {
+				log.Printf("Error shutting down tracer provider: %v", err)
+			}
+		}()
+	}
+
+	_, err = observability.InitMetrics("api-gateway")
+	if err != nil {
+		log.Printf("Failed to initialize metrics: %v", err)
+	}
+
+	// Connect to Patient Service
+	patientSvcAddr := getEnv("PATIENT_SVC_ADDR", "localhost:50051")
+	patientConn, err := grpc.NewClient(
+		patientSvcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to patient service: %v", err)
+	}
+	defer func() { _ = patientConn.Close() }()
+
+	srv := &server{
+		patientClient: patientv1.NewPatientServiceClient(patientConn),
+		tracer:        otel.Tracer("api-gateway"),
+	}
 
 	port := getEnv("PORT", "8080")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/ready", readyHandler)
-	mux.HandleFunc("/fhir/Patient", patientHandler)
-	mux.HandleFunc("/fhir/Appointment", appointmentHandler)
+	mux.HandleFunc("/health", srv.healthHandler)
+	mux.HandleFunc("/ready", srv.readyHandler)
+	mux.HandleFunc("/fhir/Patient", srv.patientHandler)
+	mux.HandleFunc("/fhir/Patient/", srv.patientByIDHandler) // Note trailing slash for ID matching
 
-	server := &http.Server{
+	// Wrap with OpenTelemetry middleware
+	handler := otelhttp.NewHandler(mux, "api-gateway",
+		otelhttp.WithMessageEvents(otelhttp.ReadEvents, otelhttp.WriteEvents),
+	)
+
+	httpServer := &http.Server{
 		Addr:    ":" + port,
-		Handler: mux,
+		Handler: loggingMiddleware(handler),
 	}
 
 	// Graceful shutdown
 	go func() {
 		log.Printf("API Gateway starting on port %s...", port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}
 	}()
@@ -42,37 +102,390 @@ func main() {
 	<-quit
 
 	log.Println("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
 	log.Println("Server exited")
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintln(w, `{"status":"healthy"}`)
 }
 
-func readyHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Check gRPC service connections
+func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	// Check Patient Service connection
+	_, err := s.patientClient.ListPatients(ctx, &patientv1.ListPatientsRequest{PageSize: 1})
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = fmt.Fprintln(w, `{"status":"not ready","error":"patient service unavailable"}`)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintln(w, `{"status":"ready"}`)
 }
 
-func patientHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Forward to patient-svc via gRPC
-	w.WriteHeader(http.StatusNotImplemented)
-	_, _ = fmt.Fprintln(w, `{"message":"Patient API - not implemented yet"}`)
+// patientHandler handles /fhir/Patient (list and create)
+func (s *server) patientHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "patientHandler")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("http.method", r.Method))
+
+	switch r.Method {
+	case http.MethodGet:
+		s.listPatientsHandler(w, r.WithContext(ctx))
+	case http.MethodPost:
+		s.createPatientHandler(w, r.WithContext(ctx))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
-func appointmentHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Forward to appointment-svc via gRPC
-	w.WriteHeader(http.StatusNotImplemented)
-	_, _ = fmt.Fprintln(w, `{"message":"Appointment API - not implemented yet"}`)
+// patientByIDHandler handles /fhir/Patient/:id (get and update)
+func (s *server) patientByIDHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "patientByIDHandler")
+	defer span.End()
+
+	// Extract ID from path
+	id := strings.TrimPrefix(r.URL.Path, "/fhir/Patient/")
+	if id == "" {
+		respondError(w, http.StatusBadRequest, "Patient ID is required")
+		return
+	}
+
+	span.SetAttributes(
+		attribute.String("http.method", r.Method),
+		attribute.String("patient.id", id),
+	)
+
+	switch r.Method {
+	case http.MethodGet:
+		s.getPatientHandler(w, r.WithContext(ctx), id)
+	case http.MethodPut:
+		s.updatePatientHandler(w, r.WithContext(ctx), id)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) createPatientHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "createPatient")
+	defer span.End()
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Failed to read request body")
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	var fhirPatient fhir.Patient
+	if err := json.Unmarshal(body, &fhirPatient); err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Convert FHIR to Proto
+	protoPatient := fhirToProto(&fhirPatient)
+
+	// Call gRPC service
+	resp, err := s.patientClient.CreatePatient(ctx, &patientv1.CreatePatientRequest{
+		Patient: protoPatient,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Convert Proto back to FHIR
+	resultPatient := protoToFHIR(resp.Patient)
+
+	respondJSON(w, http.StatusCreated, resultPatient)
+}
+
+func (s *server) getPatientHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "getPatient")
+	defer span.End()
+
+	resp, err := s.patientClient.GetPatient(ctx, &patientv1.GetPatientRequest{
+		Id: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	resultPatient := protoToFHIR(resp.Patient)
+	respondJSON(w, http.StatusOK, resultPatient)
+}
+
+func (s *server) updatePatientHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "updatePatient")
+	defer span.End()
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Failed to read request body")
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	var fhirPatient fhir.Patient
+	if err := json.Unmarshal(body, &fhirPatient); err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Ensure ID in body matches URL
+	fhirPatient.ID = id
+
+	// Convert FHIR to Proto
+	protoPatient := fhirToProto(&fhirPatient)
+
+	// Call gRPC service
+	resp, err := s.patientClient.UpdatePatient(ctx, &patientv1.UpdatePatientRequest{
+		Patient: protoPatient,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	resultPatient := protoToFHIR(resp.Patient)
+	respondJSON(w, http.StatusOK, resultPatient)
+}
+
+func (s *server) listPatientsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "listPatients")
+	defer span.End()
+
+	// Parse query parameters
+	query := r.URL.Query()
+	pageSize := query.Get("pageSize")
+	pageToken := query.Get("pageToken")
+
+	req := &patientv1.ListPatientsRequest{
+		PageToken: pageToken,
+	}
+
+	if pageSize != "" {
+		var size int32
+		if _, err := fmt.Sscanf(pageSize, "%d", &size); err == nil {
+			req.PageSize = size
+		}
+	}
+
+	// Call gRPC service
+	resp, err := s.patientClient.ListPatients(ctx, req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Convert Proto patients to FHIR
+	fhirPatients := make([]fhir.Patient, len(resp.Patients))
+	for i, p := range resp.Patients {
+		fhirPatients[i] = *protoToFHIR(p)
+	}
+
+	// Create FHIR Bundle response
+	bundle := struct {
+		ResourceType string         `json:"resourceType"`
+		Type         string         `json:"type"`
+		Entry        []fhir.Patient `json:"entry"`
+		NextLink     string         `json:"link,omitempty"`
+	}{
+		ResourceType: "Bundle",
+		Type:         "searchset",
+		Entry:        fhirPatients,
+		NextLink:     resp.NextPageToken,
+	}
+
+	respondJSON(w, http.StatusOK, bundle)
+}
+
+// fhirToProto converts FHIR Patient to Proto Patient
+func fhirToProto(f *fhir.Patient) *patientv1.Patient {
+	p := &patientv1.Patient{
+		Id:         f.ID,
+		Active:     f.Active,
+		FamilyName: f.Name.Family,
+		GivenNames: f.Name.Given,
+		Gender:     f.Gender,
+		BirthDate:  f.BirthDate,
+	}
+
+	// Convert telecom
+	if len(f.Telecom) > 0 {
+		p.Telecom = make([]*patientv1.Contact, len(f.Telecom))
+		for i, t := range f.Telecom {
+			p.Telecom[i] = &patientv1.Contact{
+				System: t.System,
+				Value:  t.Value,
+				Use:    t.Use,
+			}
+		}
+	}
+
+	// Convert address
+	if len(f.Address) > 0 {
+		addr := f.Address[0]
+		p.Address = &patientv1.Address{
+			Line:       addr.Line,
+			City:       addr.City,
+			State:      addr.State,
+			PostalCode: addr.PostalCode,
+			Country:    addr.Country,
+		}
+	}
+
+	return p
+}
+
+// protoToFHIR converts Proto Patient to FHIR Patient
+func protoToFHIR(p *patientv1.Patient) *fhir.Patient {
+	f := &fhir.Patient{
+		ID:        p.Id,
+		Active:    p.Active,
+		Gender:    p.Gender,
+		BirthDate: p.BirthDate,
+		Name: fhir.HumanName{
+			Family: p.FamilyName,
+			Given:  p.GivenNames,
+		},
+	}
+
+	// Convert telecom
+	if len(p.Telecom) > 0 {
+		f.Telecom = make([]fhir.Contact, len(p.Telecom))
+		for i, t := range p.Telecom {
+			f.Telecom[i] = fhir.Contact{
+				System: t.System,
+				Value:  t.Value,
+				Use:    t.Use,
+			}
+		}
+	}
+
+	// Convert address
+	if p.Address != nil {
+		f.Address = []fhir.Address{
+			{
+				Line:       p.Address.Line,
+				City:       p.Address.City,
+				State:      p.Address.State,
+				PostalCode: p.Address.PostalCode,
+				Country:    p.Address.Country,
+			},
+		}
+	}
+
+	return f
+}
+
+// respondJSON sends a JSON response
+func respondJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/fhir+json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("Failed to encode JSON response: %v", err)
+	}
+}
+
+// respondError sends an error response
+func respondError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/fhir+json")
+	w.WriteHeader(status)
+	resp := map[string]interface{}{
+		"resourceType": "OperationOutcome",
+		"issue": []map[string]string{
+			{
+				"severity": "error",
+				"code":     "processing",
+				"details":  message,
+			},
+		},
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("Failed to encode error response: %v", err)
+	}
+}
+
+// respondGRPCError translates gRPC errors to HTTP responses
+func respondGRPCError(w http.ResponseWriter, err error) {
+	st, ok := status.FromError(err)
+	if !ok {
+		respondError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	var httpStatus int
+	switch st.Code() {
+	case codes.NotFound:
+		httpStatus = http.StatusNotFound
+	case codes.InvalidArgument:
+		httpStatus = http.StatusBadRequest
+	case codes.AlreadyExists:
+		httpStatus = http.StatusConflict
+	case codes.PermissionDenied:
+		httpStatus = http.StatusForbidden
+	case codes.Unauthenticated:
+		httpStatus = http.StatusUnauthorized
+	case codes.ResourceExhausted:
+		httpStatus = http.StatusTooManyRequests
+	case codes.Unimplemented:
+		httpStatus = http.StatusNotImplemented
+	case codes.Unavailable:
+		httpStatus = http.StatusServiceUnavailable
+	default:
+		httpStatus = http.StatusInternalServerError
+	}
+
+	respondError(w, httpStatus, st.Message())
+}
+
+// loggingMiddleware logs HTTP requests
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		// Log request
+		log.Printf("[%s] %s %s", r.Method, r.URL.Path, r.RemoteAddr)
+
+		// Create response writer wrapper to capture status code
+		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+		next.ServeHTTP(rw, r)
+
+		// Log response
+		duration := time.Since(start)
+		log.Printf("[%s] %s %s - %d (%v)", r.Method, r.URL.Path, r.RemoteAddr, rw.statusCode, duration)
+	})
+}
+
+// responseWriter wraps http.ResponseWriter to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 func getEnv(key, defaultValue string) string {
