@@ -18,7 +18,6 @@ import (
 	appointmentv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/appointment/v1"
 	patientv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/patient/v1"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -27,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type server struct {
