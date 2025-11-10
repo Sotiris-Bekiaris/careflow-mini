@@ -1,117 +1,73 @@
 <template>
-  <div class="pa-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center mb-6">
-      <router-link to="/appointments">
-        <v-btn icon variant="text" color="primary">
-          <v-icon>mdi-arrow-left</v-icon>
-        </v-btn>
-      </router-link>
+  <div class="page">
+    <SectionHeader
+      :title="isEditing ? 'Edit appointment' : 'Create appointment'"
+      description="Send an appointment payload through the Go scheduler"
+      eyebrow="Scheduling"
+    >
+      <template #actions>
+        <router-link to="/appointments">
+          <v-btn variant="text">Back to list</v-btn>
+        </router-link>
+      </template>
+    </SectionHeader>
 
-      <h1 class="text-3xl font-bold text-gray-800 flex-1">
-        {{ isEditing ? 'Edit Appointment' : 'Create Appointment' }}
-      </h1>
-    </div>
+    <v-card class="panel">
+      <v-form ref="form" @submit.prevent="submitForm">
+        <div class="grid">
+          <v-text-field
+            v-model="formData.description"
+            label="Description"
+            :rules="[requiredRule]"
+            variant="solo"
+            density="comfortable"
+          />
+          <v-select
+            v-model="formData.status"
+            :items="statusOptions"
+            label="Status"
+            variant="solo"
+            density="comfortable"
+          />
+          <v-text-field
+            v-model="formData.patientReference"
+            label="Patient reference (Patient/{id})"
+            variant="solo"
+            density="comfortable"
+          />
+          <v-text-field
+            v-model="formData.start"
+            label="Start"
+            type="datetime-local"
+            variant="solo"
+            density="comfortable"
+          />
+          <v-text-field
+            v-model="formData.end"
+            label="End"
+            type="datetime-local"
+            variant="solo"
+            density="comfortable"
+          />
+        </div>
+        <v-textarea
+          v-model="formData.notes"
+          label="Notes"
+          rows="4"
+          variant="solo"
+          class="mt-4"
+        />
 
-    <!-- Form Card -->
-    <v-card>
-      <v-card-text class="pt-6">
-        <v-form ref="form" @submit.prevent="submitForm">
-          <v-row>
-            <!-- Description -->
-            <v-col cols="12">
-              <v-text-field
-                v-model="formData.description"
-                label="Appointment Description"
-                variant="outlined"
-                density="compact"
-                rules="required"
-                required
-              />
-            </v-col>
-
-            <!-- Status -->
-            <v-col cols="12" sm="6">
-              <v-select
-                v-model="formData.status"
-                :items="[
-                  'proposed',
-                  'pending',
-                  'booked',
-                  'arrived',
-                  'fulfilled',
-                  'cancelled',
-                  'noshow',
-                ]"
-                label="Status"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Participant -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.participantDisplay"
-                label="Participant / Patient"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Start Time -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.start"
-                label="Start Time"
-                type="datetime-local"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- End Time -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.end"
-                label="End Time"
-                type="datetime-local"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Notes -->
-            <v-col cols="12">
-              <v-textarea
-                v-model="formData.notes"
-                label="Notes"
-                variant="outlined"
-                density="compact"
-                rows="4"
-              />
-            </v-col>
-          </v-row>
-
-          <!-- Form Actions -->
-          <v-row class="mt-6">
-            <v-col cols="12" class="d-flex gap-3">
-              <v-btn type="submit" color="primary" size="large">
-                <v-icon start>mdi-check</v-icon>
-                {{ isEditing ? 'Update Appointment' : 'Create Appointment' }}
-              </v-btn>
-
-              <v-btn
-                variant="outlined"
-                size="large"
-                @click="$router.push('/appointments')"
-              >
-                Cancel
-              </v-btn>
-            </v-col>
-          </v-row>
-        </v-form>
-      </v-card-text>
+        <div class="actions">
+          <v-btn type="submit" color="primary" size="large" :loading="appointmentStore.loading">
+            <v-icon start>mdi-check</v-icon>
+            {{ isEditing ? 'Update appointment' : 'Create appointment' }}
+          </v-btn>
+          <router-link to="/appointments">
+            <v-btn size="large" variant="text">Cancel</v-btn>
+          </router-link>
+        </div>
+      </v-form>
     </v-card>
   </div>
 </template>
@@ -120,10 +76,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppointmentStore } from '@/stores/appointment'
+import { useUIStore } from '@/stores/ui'
+import SectionHeader from '@/components/ui/SectionHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
 const appointmentStore = useAppointmentStore()
+const uiStore = useUIStore()
 const form = ref()
 
 const isEditing = computed(() => !!route.params.id)
@@ -131,58 +90,86 @@ const isEditing = computed(() => !!route.params.id)
 const formData = reactive({
   description: '',
   status: 'booked',
-  participantDisplay: '',
+  patientReference: '',
   start: '',
   end: '',
   notes: '',
 })
 
-onMounted(async () => {
-  if (isEditing.value) {
-    const id = route.params.id as string
-    await appointmentStore.fetchAppointmentById(id)
+const statusOptions = ['proposed', 'pending', 'booked', 'arrived', 'fulfilled', 'cancelled', 'noshow']
+const requiredRule = (value: string) => (!!value && value.trim().length > 0) || 'Required'
 
-    if (appointmentStore.currentAppointment) {
-      const appointment = appointmentStore.currentAppointment
-      formData.description = appointment.description || ''
-      formData.status = appointment.status || 'booked'
-      formData.participantDisplay = appointment.participant?.[0]?.actor?.display || ''
-      formData.start = appointment.start || ''
-      formData.end = appointment.end || ''
-    }
-  }
+onMounted(async () => {
+  if (!isEditing.value) return
+  await appointmentStore.fetchAppointmentById(route.params.id as string)
+  const appointment = appointmentStore.currentAppointment
+  if (!appointment) return
+  formData.description = appointment.description ?? ''
+  formData.status = appointment.status ?? 'booked'
+  formData.patientReference = appointment.participant?.[0]?.actor?.reference ?? ''
+  formData.start = appointment.start ?? ''
+  formData.end = appointment.end ?? ''
+  formData.notes = ''
 })
 
 const submitForm = async () => {
-  if (form.value && await form.value.validate()) {
-    const appointmentData = {
-      resourceType: 'Appointment' as const,
-      description: formData.description,
-      status: formData.status as any,
-      start: formData.start,
-      end: formData.end,
-      participant: [
-        {
-          actor: {
-            reference: formData.participantDisplay,
-            display: formData.participantDisplay,
-          },
-          status: 'accepted',
+  const result = await form.value?.validate()
+  if (!result?.valid) return
+
+  const payload = {
+    resourceType: 'Appointment' as const,
+    description: formData.description,
+    status: formData.status as any,
+    start: formData.start,
+    end: formData.end,
+    participant: [
+      {
+        actor: {
+          reference: formData.patientReference,
+          display: formData.patientReference,
         },
-      ],
-    }
+        status: 'accepted',
+      },
+    ],
+  }
 
-    try {
-      if (isEditing.value) {
-        await appointmentStore.updateAppointment(route.params.id as string, appointmentData as any)
-      } else {
-        await appointmentStore.createAppointment(appointmentData as any)
-      }
-
-      router.push('/appointments')
-    } catch (error) {
-      console.error('Failed to save appointment:', error)
+  try {
+    if (isEditing.value) {
+      await appointmentStore.updateAppointment(route.params.id as string, payload as any)
+    } else {
+      await appointmentStore.createAppointment(payload as any)
     }
+    uiStore.addNotification(`Appointment ${isEditing.value ? 'updated' : 'created'}`, 'success')
+    router.push('/appointments')
+  } catch (error) {
+    uiStore.addNotification('Unable to save appointment', 'error')
+    console.error('Failed to save appointment:', error)
   }
 }
 </script>
+
+<style scoped>
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.panel {
+  border-radius: var(--cf-radius-lg);
+  box-shadow: var(--cf-shadow-soft);
+  padding: 2rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.actions {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+</style>
