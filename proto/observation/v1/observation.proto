@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package observation.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/Sotiris-Bekiaris/careflow-mini/proto/observation/v1;observationv1";
+
+// ObservationService handles observation/lab result operations
+service ObservationService {
+  // CreateObservation creates a new observation
+  rpc CreateObservation(CreateObservationRequest) returns (CreateObservationResponse);
+
+  // GetObservation retrieves an observation by ID
+  rpc GetObservation(GetObservationRequest) returns (GetObservationResponse);
+
+  // ListObservations lists observations for a patient
+  rpc ListObservations(ListObservationsRequest) returns (ListObservationsResponse);
+
+  // UpdateObservationStatus updates the status of an observation
+  rpc UpdateObservationStatus(UpdateObservationStatusRequest) returns (UpdateObservationStatusResponse);
+}
+
+// Observation represents a lab result or clinical observation
+message Observation {
+  string id = 1;
+  string status = 2; // registered, preliminary, final, amended, cancelled, entered-in-error, unknown
+  string patient_id = 3;
+  google.protobuf.Timestamp effective_datetime = 4;
+  google.protobuf.Timestamp issued = 5;
+  string code = 6;
+  string code_system = 7;
+  string value_quantity_value = 8;
+  string value_quantity_unit = 9;
+  string value_string = 10;
+  repeated string category = 11;
+  string interpretation = 12;
+  string reference_range_low = 13;
+  string reference_range_high = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+}
+
+// CreateObservationRequest represents a request to create an observation
+message CreateObservationRequest {
+  Observation observation = 1;
+}
+
+// CreateObservationResponse represents a response from creating an observation
+message CreateObservationResponse {
+  Observation observation = 1;
+}
+
+// GetObservationRequest represents a request to get an observation
+message GetObservationRequest {
+  string id = 1;
+}
+
+// GetObservationResponse represents a response from getting an observation
+message GetObservationResponse {
+  Observation observation = 1;
+}
+
+// ListObservationsRequest represents a request to list observations
+message ListObservationsRequest {
+  string patient_id = 1; // Required: filter by patient
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+// ListObservationsResponse represents a response from listing observations
+message ListObservationsResponse {
+  repeated Observation observations = 1;
+  string next_page_token = 2;
+}
+
+// UpdateObservationStatusRequest represents a request to update observation status
+message UpdateObservationStatusRequest {
+  string id = 1;
+  string status = 2;
+}
+
+// UpdateObservationStatusResponse represents a response from updating observation status
+message UpdateObservationStatusResponse {
+  Observation observation = 1;
+}

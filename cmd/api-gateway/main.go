@@ -16,6 +16,7 @@ import (
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/fhir"
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/observability"
 	appointmentv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/appointment/v1"
+	observationv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/observation/v1"
 	patientv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/patient/v1"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -33,6 +34,7 @@ import (
 type server struct {
 	patientClient     patientv1.PatientServiceClient
 	appointmentClient appointmentv1.AppointmentServiceClient
+	observationClient observationv1.ObservationServiceClient
 	labAdapterConn    grpc.ClientConnInterface
 	notifyServiceConn grpc.ClientConnInterface
 	tracer            trace.Tracer
@@ -84,6 +86,18 @@ func main() {
 	}
 	defer func() { _ = appointmentConn.Close() }()
 
+	// Connect to Observation Service
+	observationSvcAddr := getEnv("OBSERVATION_SVC_ADDR", "localhost:50055")
+	observationConn, err := grpc.NewClient(
+		observationSvcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to observation service: %v", err)
+	}
+	defer func() { _ = observationConn.Close() }()
+
 	// Connect to Lab Adapter (health check only)
 	labAdapterAddr := getEnv("LAB_ADAPTER_ADDR", "localhost:50053")
 	labAdapterConn, err := grpc.NewClient(
@@ -111,6 +125,7 @@ func main() {
 	srv := &server{
 		patientClient:     patientv1.NewPatientServiceClient(patientConn),
 		appointmentClient: appointmentv1.NewAppointmentServiceClient(appointmentConn),
+		observationClient: observationv1.NewObservationServiceClient(observationConn),
 		labAdapterConn:    labAdapterConn,
 		notifyServiceConn: notifyServiceConn,
 		tracer:            otel.Tracer("api-gateway"),
@@ -125,6 +140,8 @@ func main() {
 	mux.HandleFunc("/fhir/Patient/", srv.patientByIDHandler) // Note trailing slash for ID matching
 	mux.HandleFunc("/fhir/Appointment", srv.appointmentHandler)
 	mux.HandleFunc("/fhir/Appointment/", srv.appointmentByIDHandler) // Note trailing slash for ID matching
+	mux.HandleFunc("/fhir/Observation", srv.observationHandler)
+	mux.HandleFunc("/fhir/Observation/", srv.observationByIDHandler) // Note trailing slash for ID matching
 
 	// Wrap with OpenTelemetry middleware
 	handler := otelhttp.NewHandler(mux, "api-gateway",
@@ -201,6 +218,19 @@ func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = fmt.Fprintf(w, `{"status":"not ready","error":"notify-svc unavailable: %s"}`+"\n", err.Error())
 		return
+	}
+
+	// Check Observation Service connection
+	_, err = s.observationClient.ListObservations(ctx, &observationv1.ListObservationsRequest{PageSize: 1, PatientId: "test"})
+	if err != nil {
+		// For observation service, we may not have any test data, so just check if service is reachable
+		// A context deadline or connection error indicates service is down
+		if status.Code(err) != codes.NotFound && status.Code(err) != codes.InvalidArgument {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = fmt.Fprintln(w, `{"status":"not ready","error":"observation service unavailable"}`)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -850,6 +880,308 @@ func protoAppointmentToFHIR(p *appointmentv1.Appointment) *fhir.Appointment {
 	f.Meta = fhir.Meta{}
 
 	return f
+}
+
+// observationHandler handles /fhir/Observation (list and create)
+func (s *server) observationHandler(w http.ResponseWriter, r *http.Request) {
+	_, span := s.tracer.Start(r.Context(), "observationHandler")
+	defer span.End()
+
+	switch r.Method {
+	case http.MethodGet:
+		s.listObservationsHandler(w, r)
+	case http.MethodPost:
+		s.createObservationHandler(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// observationByIDHandler handles /fhir/Observation/:id (get and update status)
+func (s *server) observationByIDHandler(w http.ResponseWriter, r *http.Request) {
+	_, span := s.tracer.Start(r.Context(), "observationByIDHandler")
+	defer span.End()
+
+	id := strings.TrimPrefix(r.URL.Path, "/fhir/Observation/")
+	if id == "" {
+		http.Error(w, "Invalid observation ID", http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		s.getObservationHandler(w, r, id)
+	case http.MethodPost:
+		s.updateObservationStatusHandler(w, r, id)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) createObservationHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "createObservationHandler")
+	defer span.End()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	var fhirObservation fhir.Observation
+	if err := json.Unmarshal(body, &fhirObservation); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid JSON")
+		return
+	}
+
+	protoObservation := fhirObservationToProto(&fhirObservation)
+
+	resp, err := s.observationClient.CreateObservation(ctx, &observationv1.CreateObservationRequest{
+		Observation: protoObservation,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	fhirResp := protoObservationToFHIR(resp.Observation)
+	respondJSON(w, http.StatusCreated, fhirResp)
+}
+
+func (s *server) getObservationHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "getObservationHandler")
+	defer span.End()
+
+	resp, err := s.observationClient.GetObservation(ctx, &observationv1.GetObservationRequest{
+		Id: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	fhirResp := protoObservationToFHIR(resp.Observation)
+	respondJSON(w, http.StatusOK, fhirResp)
+}
+
+func (s *server) updateObservationStatusHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "updateObservationStatusHandler")
+	defer span.End()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	var updateRequest map[string]string
+	if err := json.Unmarshal(body, &updateRequest); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid JSON")
+		return
+	}
+
+	status, ok := updateRequest["status"]
+	if !ok {
+		respondError(w, http.StatusBadRequest, "Status field is required")
+		return
+	}
+
+	resp, err := s.observationClient.UpdateObservationStatus(ctx, &observationv1.UpdateObservationStatusRequest{
+		Id:     id,
+		Status: status,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	fhirResp := protoObservationToFHIR(resp.Observation)
+	respondJSON(w, http.StatusOK, fhirResp)
+}
+
+func (s *server) listObservationsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "listObservationsHandler")
+	defer span.End()
+
+	patientID := r.URL.Query().Get("patient")
+	if patientID == "" {
+		respondError(w, http.StatusBadRequest, "patient query parameter is required")
+		return
+	}
+
+	req := &observationv1.ListObservationsRequest{
+		PatientId: patientID,
+		PageSize:  10,
+	}
+
+	// Parse pagination token if provided
+	if pageToken := r.URL.Query().Get("page_token"); pageToken != "" {
+		req.PageToken = pageToken
+	}
+
+	resp, err := s.observationClient.ListObservations(ctx, req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Convert to FHIR observations
+	observations := make([]fhir.Observation, len(resp.Observations))
+	for i, obs := range resp.Observations {
+		protoObs := protoObservationToFHIR(obs)
+		observations[i] = *protoObs
+	}
+
+	// Return as FHIR bundle
+	bundle := map[string]interface{}{
+		"resourceType": "Bundle",
+		"type":         "searchset",
+		"total":        len(observations),
+		"entry": func() []map[string]interface{} {
+			if len(observations) == 0 {
+				return []map[string]interface{}{}
+			}
+			entries := make([]map[string]interface{}, len(observations))
+			for i, obs := range observations {
+				entries[i] = map[string]interface{}{
+					"resource": obs,
+				}
+			}
+			return entries
+		}(),
+	}
+
+	respondJSON(w, http.StatusOK, bundle)
+}
+
+// fhirObservationToProto converts FHIR Observation to protobuf Observation
+func fhirObservationToProto(f *fhir.Observation) *observationv1.Observation {
+	if f == nil {
+		return nil
+	}
+
+	code := ""
+	codeSystem := ""
+	if len(f.Code.Coding) > 0 {
+		code = f.Code.Coding[0].Code
+		codeSystem = f.Code.Coding[0].System
+	} else {
+		code = f.Code.Text
+	}
+
+	categories := make([]string, len(f.Category))
+	for i, c := range f.Category {
+		categories[i] = c.Text
+	}
+
+	valueQuantityValue := ""
+	valueQuantityUnit := ""
+	if f.ValueQuantity != nil {
+		valueQuantityValue = fmt.Sprintf("%v", f.ValueQuantity.Value)
+		valueQuantityUnit = f.ValueQuantity.Unit
+	}
+
+	referenceLow := ""
+	referenceHigh := ""
+	if len(f.ReferenceRange) > 0 {
+		if f.ReferenceRange[0].Low != nil {
+			referenceLow = fmt.Sprintf("%v", f.ReferenceRange[0].Low.Value)
+		}
+		if f.ReferenceRange[0].High != nil {
+			referenceHigh = fmt.Sprintf("%v", f.ReferenceRange[0].High.Value)
+		}
+	}
+
+	patientID := ""
+	if f.Subject.Reference != "" && len(f.Subject.Reference) > 8 {
+		patientID = f.Subject.Reference[8:]
+	}
+
+	return &observationv1.Observation{
+		Id:                   f.ID,
+		Status:               f.Status,
+		PatientId:            patientID,
+		EffectiveDatetime:    timestamppb.New(f.EffectiveDateTime),
+		Issued:               timestamppb.New(f.Issued),
+		Code:                 code,
+		CodeSystem:           codeSystem,
+		ValueQuantityValue:   valueQuantityValue,
+		ValueQuantityUnit:    valueQuantityUnit,
+		ValueString:          f.ValueString,
+		Category:             categories,
+		ReferenceRangeLow:    referenceLow,
+		ReferenceRangeHigh:   referenceHigh,
+	}
+}
+
+// protoObservationToFHIR converts protobuf Observation to FHIR Observation
+func protoObservationToFHIR(p *observationv1.Observation) *fhir.Observation {
+	if p == nil {
+		return nil
+	}
+
+	// Parse quantities
+	var valueQuantity *fhir.Quantity
+	if p.ValueQuantityValue != "" {
+		var value float64
+		_, _ = fmt.Sscanf(p.ValueQuantityValue, "%f", &value)
+		valueQuantity = &fhir.Quantity{
+			Value: value,
+			Unit:  p.ValueQuantityUnit,
+		}
+	}
+
+	referenceRange := []fhir.ReferenceRange{}
+	if p.ReferenceRangeLow != "" || p.ReferenceRangeHigh != "" {
+		var low, high *fhir.Quantity
+		if p.ReferenceRangeLow != "" {
+			var lowVal float64
+			_, _ = fmt.Sscanf(p.ReferenceRangeLow, "%f", &lowVal)
+			low = &fhir.Quantity{Value: lowVal}
+		}
+		if p.ReferenceRangeHigh != "" {
+			var highVal float64
+			_, _ = fmt.Sscanf(p.ReferenceRangeHigh, "%f", &highVal)
+			high = &fhir.Quantity{Value: highVal}
+		}
+		referenceRange = append(referenceRange, fhir.ReferenceRange{
+			Low:  low,
+			High: high,
+		})
+	}
+
+	categories := make([]fhir.CodeableConcept, len(p.Category))
+	for i, c := range p.Category {
+		categories[i] = fhir.CodeableConcept{
+			Text: c,
+		}
+	}
+
+	return &fhir.Observation{
+		ID:     p.Id,
+		Status: p.Status,
+		Category: categories,
+		Code: fhir.CodeableConcept{
+			Coding: []fhir.Coding{
+				{
+					System: p.CodeSystem,
+					Code:   p.Code,
+				},
+			},
+			Text: p.Code,
+		},
+		Subject: fhir.Reference{
+			Reference: "Patient/" + p.PatientId,
+		},
+		EffectiveDateTime: p.EffectiveDatetime.AsTime(),
+		Issued:            p.Issued.AsTime(),
+		ValueQuantity:     valueQuantity,
+		ValueString:       p.ValueString,
+		ReferenceRange:    referenceRange,
+		Meta: fhir.Meta{
+			LastUpdated: time.Now().UTC(),
+		},
+	}
 }
 
 func getEnv(key, defaultValue string) string {
