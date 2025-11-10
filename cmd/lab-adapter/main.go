@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
@@ -13,6 +14,9 @@ import (
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/db"
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/events"
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/observability"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -82,6 +86,29 @@ func main() {
 	repo := labadapter.NewPostgresRepository(dbPool)
 	svc := labadapter.NewService(repo, publisher, tracer)
 
+	// Setup gRPC health check server
+	grpcPort := getEnv("GRPC_PORT", "50053")
+
+	listener, err := net.Listen("tcp", ":"+grpcPort)
+	if err != nil {
+		log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
+	}
+
+	grpcServer := grpc.NewServer()
+
+	// Register health check service
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	log.Printf("Lab Adapter health check starting on port %s...", grpcPort)
+
+	go func() {
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Fatalf("Failed to serve gRPC: %v", err)
+		}
+	}()
+
 	// Start worker loop
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -118,6 +145,8 @@ OBX|1|NM|WBC^White Blood Cell Count|1|7.5|10^3/uL|4.0-11.0|N|||F`
 	<-quit
 
 	log.Println("Shutting down Lab Adapter...")
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	grpcServer.GracefulStop()
 	cancel()
 	time.Sleep(1 * time.Second)
 	log.Println("Lab Adapter exited")
