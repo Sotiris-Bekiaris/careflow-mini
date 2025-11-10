@@ -530,6 +530,88 @@ func (x *UpdatePatientResponse) GetPatient() *Patient {
 	return nil
 }
 
+// DeletePatientRequest represents a request to delete a patient
+type DeletePatientRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePatientRequest) Reset() {
+	*x = DeletePatientRequest{}
+	mi := &file_patient_v1_patient_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePatientRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePatientRequest) ProtoMessage() {}
+
+func (x *DeletePatientRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_v1_patient_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePatientRequest.ProtoReflect.Descriptor instead.
+func (*DeletePatientRequest) Descriptor() ([]byte, []int) {
+	return file_patient_v1_patient_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DeletePatientRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// DeletePatientResponse represents a response from deleting a patient
+type DeletePatientResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePatientResponse) Reset() {
+	*x = DeletePatientResponse{}
+	mi := &file_patient_v1_patient_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePatientResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePatientResponse) ProtoMessage() {}
+
+func (x *DeletePatientResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_patient_v1_patient_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePatientResponse.ProtoReflect.Descriptor instead.
+func (*DeletePatientResponse) Descriptor() ([]byte, []int) {
+	return file_patient_v1_patient_proto_rawDescGZIP(), []int{10}
+}
+
 // ListPatientsRequest represents a request to list patients
 type ListPatientsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -541,7 +623,7 @@ type ListPatientsRequest struct {
 
 func (x *ListPatientsRequest) Reset() {
 	*x = ListPatientsRequest{}
-	mi := &file_patient_v1_patient_proto_msgTypes[9]
+	mi := &file_patient_v1_patient_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +635,7 @@ func (x *ListPatientsRequest) String() string {
 func (*ListPatientsRequest) ProtoMessage() {}
 
 func (x *ListPatientsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_patient_v1_patient_proto_msgTypes[9]
+	mi := &file_patient_v1_patient_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,7 +648,7 @@ func (x *ListPatientsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPatientsRequest.ProtoReflect.Descriptor instead.
 func (*ListPatientsRequest) Descriptor() ([]byte, []int) {
-	return file_patient_v1_patient_proto_rawDescGZIP(), []int{9}
+	return file_patient_v1_patient_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListPatientsRequest) GetPageSize() int32 {
@@ -594,7 +676,7 @@ type ListPatientsResponse struct {
 
 func (x *ListPatientsResponse) Reset() {
 	*x = ListPatientsResponse{}
-	mi := &file_patient_v1_patient_proto_msgTypes[10]
+	mi := &file_patient_v1_patient_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +688,7 @@ func (x *ListPatientsResponse) String() string {
 func (*ListPatientsResponse) ProtoMessage() {}
 
 func (x *ListPatientsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_patient_v1_patient_proto_msgTypes[10]
+	mi := &file_patient_v1_patient_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +701,7 @@ func (x *ListPatientsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPatientsResponse.ProtoReflect.Descriptor instead.
 func (*ListPatientsResponse) Descriptor() ([]byte, []int) {
-	return file_patient_v1_patient_proto_rawDescGZIP(), []int{10}
+	return file_patient_v1_patient_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListPatientsResponse) GetPatients() []*Patient {
@@ -676,19 +758,23 @@ const file_patient_v1_patient_proto_rawDesc = "" +
 	"\x14UpdatePatientRequest\x12-\n" +
 	"\apatient\x18\x01 \x01(\v2\x13.patient.v1.PatientR\apatient\"F\n" +
 	"\x15UpdatePatientResponse\x12-\n" +
-	"\apatient\x18\x01 \x01(\v2\x13.patient.v1.PatientR\apatient\"Q\n" +
+	"\apatient\x18\x01 \x01(\v2\x13.patient.v1.PatientR\apatient\"&\n" +
+	"\x14DeletePatientRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
+	"\x15DeletePatientResponse\"Q\n" +
 	"\x13ListPatientsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\"o\n" +
 	"\x14ListPatientsResponse\x12/\n" +
 	"\bpatients\x18\x01 \x03(\v2\x13.patient.v1.PatientR\bpatients\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xdc\x02\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xb2\x03\n" +
 	"\x0ePatientService\x12T\n" +
 	"\rCreatePatient\x12 .patient.v1.CreatePatientRequest\x1a!.patient.v1.CreatePatientResponse\x12K\n" +
 	"\n" +
 	"GetPatient\x12\x1d.patient.v1.GetPatientRequest\x1a\x1e.patient.v1.GetPatientResponse\x12T\n" +
-	"\rUpdatePatient\x12 .patient.v1.UpdatePatientRequest\x1a!.patient.v1.UpdatePatientResponse\x12Q\n" +
+	"\rUpdatePatient\x12 .patient.v1.UpdatePatientRequest\x1a!.patient.v1.UpdatePatientResponse\x12T\n" +
+	"\rDeletePatient\x12 .patient.v1.DeletePatientRequest\x1a!.patient.v1.DeletePatientResponse\x12Q\n" +
 	"\fListPatients\x12\x1f.patient.v1.ListPatientsRequest\x1a .patient.v1.ListPatientsResponseB\xad\x01\n" +
 	"\x0ecom.patient.v1B\fPatientProtoP\x01ZDgithub.com/Sotiris-Bekiaris/careflow-mini/proto/patient/v1;patientv1\xa2\x02\x03PXX\xaa\x02\n" +
 	"Patient.V1\xca\x02\n" +
@@ -706,7 +792,7 @@ func file_patient_v1_patient_proto_rawDescGZIP() []byte {
 	return file_patient_v1_patient_proto_rawDescData
 }
 
-var file_patient_v1_patient_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_patient_v1_patient_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_patient_v1_patient_proto_goTypes = []any{
 	(*Patient)(nil),               // 0: patient.v1.Patient
 	(*Contact)(nil),               // 1: patient.v1.Contact
@@ -717,8 +803,10 @@ var file_patient_v1_patient_proto_goTypes = []any{
 	(*GetPatientResponse)(nil),    // 6: patient.v1.GetPatientResponse
 	(*UpdatePatientRequest)(nil),  // 7: patient.v1.UpdatePatientRequest
 	(*UpdatePatientResponse)(nil), // 8: patient.v1.UpdatePatientResponse
-	(*ListPatientsRequest)(nil),   // 9: patient.v1.ListPatientsRequest
-	(*ListPatientsResponse)(nil),  // 10: patient.v1.ListPatientsResponse
+	(*DeletePatientRequest)(nil),  // 9: patient.v1.DeletePatientRequest
+	(*DeletePatientResponse)(nil), // 10: patient.v1.DeletePatientResponse
+	(*ListPatientsRequest)(nil),   // 11: patient.v1.ListPatientsRequest
+	(*ListPatientsResponse)(nil),  // 12: patient.v1.ListPatientsResponse
 }
 var file_patient_v1_patient_proto_depIdxs = []int32{
 	1,  // 0: patient.v1.Patient.telecom:type_name -> patient.v1.Contact
@@ -732,13 +820,15 @@ var file_patient_v1_patient_proto_depIdxs = []int32{
 	3,  // 8: patient.v1.PatientService.CreatePatient:input_type -> patient.v1.CreatePatientRequest
 	5,  // 9: patient.v1.PatientService.GetPatient:input_type -> patient.v1.GetPatientRequest
 	7,  // 10: patient.v1.PatientService.UpdatePatient:input_type -> patient.v1.UpdatePatientRequest
-	9,  // 11: patient.v1.PatientService.ListPatients:input_type -> patient.v1.ListPatientsRequest
-	4,  // 12: patient.v1.PatientService.CreatePatient:output_type -> patient.v1.CreatePatientResponse
-	6,  // 13: patient.v1.PatientService.GetPatient:output_type -> patient.v1.GetPatientResponse
-	8,  // 14: patient.v1.PatientService.UpdatePatient:output_type -> patient.v1.UpdatePatientResponse
-	10, // 15: patient.v1.PatientService.ListPatients:output_type -> patient.v1.ListPatientsResponse
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
+	9,  // 11: patient.v1.PatientService.DeletePatient:input_type -> patient.v1.DeletePatientRequest
+	11, // 12: patient.v1.PatientService.ListPatients:input_type -> patient.v1.ListPatientsRequest
+	4,  // 13: patient.v1.PatientService.CreatePatient:output_type -> patient.v1.CreatePatientResponse
+	6,  // 14: patient.v1.PatientService.GetPatient:output_type -> patient.v1.GetPatientResponse
+	8,  // 15: patient.v1.PatientService.UpdatePatient:output_type -> patient.v1.UpdatePatientResponse
+	10, // 16: patient.v1.PatientService.DeletePatient:output_type -> patient.v1.DeletePatientResponse
+	12, // 17: patient.v1.PatientService.ListPatients:output_type -> patient.v1.ListPatientsResponse
+	13, // [13:18] is the sub-list for method output_type
+	8,  // [8:13] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name
 	8,  // [8:8] is the sub-list for extension extendee
 	0,  // [0:8] is the sub-list for field type_name
@@ -755,7 +845,7 @@ func file_patient_v1_patient_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_patient_v1_patient_proto_rawDesc), len(file_patient_v1_patient_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

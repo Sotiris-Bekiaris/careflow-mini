@@ -8,6 +8,7 @@ type EventType string
 const (
 	PatientCreated       EventType = "patient.created"
 	PatientUpdated       EventType = "patient.updated"
+	PatientDeleted       EventType = "patient.deleted"
 	AppointmentCreated   EventType = "appointment.created"
 	AppointmentCancelled EventType = "appointment.cancelled"
 	ObservationCreated   EventType = "observation.created"

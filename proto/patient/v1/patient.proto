@@ -15,6 +15,9 @@ service PatientService {
   // UpdatePatient updates an existing patient record
   rpc UpdatePatient(UpdatePatientRequest) returns (UpdatePatientResponse);
 
+  // DeletePatient deletes a patient record
+  rpc DeletePatient(DeletePatientRequest) returns (DeletePatientResponse);
+
   // ListPatients lists all patients
   rpc ListPatients(ListPatientsRequest) returns (ListPatientsResponse);
 }
@@ -76,6 +79,14 @@ message UpdatePatientRequest {
 message UpdatePatientResponse {
   Patient patient = 1;
 }
+
+// DeletePatientRequest represents a request to delete a patient
+message DeletePatientRequest {
+  string id = 1;
+}
+
+// DeletePatientResponse represents a response from deleting a patient
+message DeletePatientResponse {}
 
 // ListPatientsRequest represents a request to list patients
 message ListPatientsRequest {
