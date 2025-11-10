@@ -64,3 +64,23 @@ Thumbs.db
 
 # CareFlow workflow tracking (local only)
 .careflow-workflow.md
+
+# Node.js and Frontend
+web/node_modules/
+web/dist/
+web/.env.local
+web/.env.*.local
+web/coverage/
+web/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE specific - Frontend
+web/.vscode/
+web/.idea/
+
+# Package lock files (choose one strategy)
+# Option: commit lock files for reproducible builds
+# Option: ignore lock files for monorepo flexibility

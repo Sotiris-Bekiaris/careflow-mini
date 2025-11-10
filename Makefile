@@ -1,19 +1,25 @@
-.PHONY: help build test lint clean run-dev stop-dev proto docker-up docker-down
+.PHONY: help build test lint clean run-dev stop-dev proto docker-up docker-down build-ui dev-ui lint-ui clean-ui
 
 # Default target
 help:
 	@echo "CareFlow-Mini Makefile"
 	@echo ""
-	@echo "Available targets:"
-	@echo "  make build       - Build all services"
-	@echo "  make test        - Run all tests"
-	@echo "  make lint        - Run linters"
+	@echo "Backend Targets:"
+	@echo "  make build       - Build all backend services"
+	@echo "  make test        - Run all backend tests"
+	@echo "  make lint        - Run backend linters"
 	@echo "  make proto       - Generate protobuf code"
-	@echo "  make run-dev     - Start local dev environment"
+	@echo "  make run-dev     - Start local dev environment (backend + docker)"
 	@echo "  make stop-dev    - Stop local dev services"
 	@echo "  make docker-up   - Start Docker Compose stack"
 	@echo "  make docker-down - Stop Docker Compose stack"
-	@echo "  make clean       - Clean build artifacts"
+	@echo "  make clean       - Clean backend build artifacts"
+	@echo ""
+	@echo "Frontend Targets (Vue 3 UI):"
+	@echo "  make dev-ui      - Start Vue dev server (port 3000)"
+	@echo "  make build-ui    - Build Vue production bundle"
+	@echo "  make lint-ui     - Lint Vue code"
+	@echo "  make clean-ui    - Clean Vue artifacts"
 
 # Build all services
 build:
@@ -74,3 +80,26 @@ run-dev: docker-up build
 	@echo "Development environment is ready!"
 	@echo "API Gateway: http://localhost:8080"
 	@echo "To stop services: make stop-dev"
+
+# Frontend (Vue 3) targets
+
+# Start Vue development server
+dev-ui:
+	@echo "Starting Vue development server..."
+	@cd web && npm run dev
+
+# Build Vue production bundle
+build-ui:
+	@echo "Building Vue production bundle..."
+	@cd web && npm run build
+
+# Lint Vue code
+lint-ui:
+	@echo "Linting Vue code..."
+	@cd web && npm run lint
+
+# Clean Vue build artifacts
+clean-ui:
+	@echo "Cleaning Vue artifacts..."
+	@cd web && npm run clean || true
+	@rm -rf web/dist web/node_modules/.vite web/coverage
