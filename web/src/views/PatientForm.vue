@@ -1,170 +1,100 @@
 <template>
-  <div class="pa-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center mb-6">
-      <router-link to="/patients">
-        <v-btn icon variant="text" color="primary">
-          <v-icon>mdi-arrow-left</v-icon>
-        </v-btn>
-      </router-link>
+  <div class="page">
+    <SectionHeader
+      :title="isEditing ? 'Edit patient' : 'Create patient'"
+      description="FHIR-compliant payload sent to the Go patient service"
+      eyebrow="Patient builder"
+    >
+      <template #actions>
+        <router-link to="/patients">
+          <v-btn variant="text">Back to list</v-btn>
+        </router-link>
+      </template>
+    </SectionHeader>
 
-      <h1 class="text-3xl font-bold text-gray-800 flex-1">
-        {{ isEditing ? 'Edit Patient' : 'Create Patient' }}
-      </h1>
-    </div>
+    <v-card class="panel">
+      <v-form ref="form" @submit.prevent="submitForm">
+        <div class="form-grid">
+          <div>
+            <h3>Identity</h3>
+            <p>Captured as FHIR name + demographic attributes.</p>
+          </div>
+          <div class="grid">
+            <v-text-field
+              v-model="formData.firstName"
+              label="First name"
+              :rules="[requiredRule]"
+              variant="solo"
+              density="comfortable"
+            />
+            <v-text-field
+              v-model="formData.lastName"
+              label="Last name"
+              :rules="[requiredRule]"
+              variant="solo"
+              density="comfortable"
+            />
+            <v-select
+              v-model="formData.gender"
+              :items="genderOptions"
+              label="Gender"
+              variant="solo"
+              density="comfortable"
+            />
+            <v-text-field
+              v-model="formData.birthDate"
+              label="Date of birth"
+              type="date"
+              variant="solo"
+              density="comfortable"
+            />
+          </div>
+        </div>
 
-    <!-- Form Card -->
-    <v-card>
-      <v-card-text class="pt-6">
-        <v-form ref="form" @submit.prevent="submitForm">
-          <v-row>
-            <!-- First Name -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.firstName"
-                label="First Name"
-                variant="outlined"
-                density="compact"
-                rules="required"
-                required
-              />
-            </v-col>
+        <v-divider class="my-6"></v-divider>
 
-            <!-- Last Name -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.lastName"
-                label="Last Name"
-                variant="outlined"
-                density="compact"
-                rules="required"
-                required
-              />
-            </v-col>
+        <div class="form-grid">
+          <div>
+            <h3>Contact</h3>
+            <p>Primary telecom channels for care teams.</p>
+          </div>
+          <div class="grid">
+            <v-text-field
+              v-model="formData.email"
+              label="Email"
+              type="email"
+              variant="solo"
+              density="comfortable"
+            />
+            <v-text-field
+              v-model="formData.phone"
+              label="Phone"
+              type="tel"
+              variant="solo"
+              density="comfortable"
+            />
+            <v-text-field v-model="formData.addressLine" label="Address line" variant="solo" />
+            <v-text-field v-model="formData.city" label="City" variant="solo" />
+            <v-text-field v-model="formData.state" label="State/Province" variant="solo" />
+            <v-text-field v-model="formData.postalCode" label="Postal code" variant="solo" />
+            <v-text-field v-model="formData.country" label="Country" variant="solo" />
+          </div>
+        </div>
 
-            <!-- Gender -->
-            <v-col cols="12" sm="6">
-              <v-select
-                v-model="formData.gender"
-                :items="['male', 'female', 'other', 'unknown']"
-                label="Gender"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
+        <v-divider class="my-6"></v-divider>
 
-            <!-- Date of Birth -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.birthDate"
-                label="Date of Birth"
-                type="date"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
+        <v-switch v-model="formData.active" inset color="primary" label="Active record" />
 
-            <!-- Email -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.email"
-                label="Email"
-                type="email"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Phone -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.phone"
-                label="Phone"
-                type="tel"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Address -->
-            <v-col cols="12">
-              <v-text-field
-                v-model="formData.addressLine"
-                label="Address"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- City -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.city"
-                label="City"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- State -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.state"
-                label="State/Province"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Postal Code -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.postalCode"
-                label="Postal Code"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Country -->
-            <v-col cols="12" sm="6">
-              <v-text-field
-                v-model="formData.country"
-                label="Country"
-                variant="outlined"
-                density="compact"
-              />
-            </v-col>
-
-            <!-- Active Status -->
-            <v-col cols="12">
-              <v-checkbox
-                v-model="formData.active"
-                label="Active"
-                color="primary"
-              />
-            </v-col>
-          </v-row>
-
-          <!-- Form Actions -->
-          <v-row class="mt-6">
-            <v-col cols="12" class="d-flex gap-3">
-              <v-btn type="submit" color="primary" size="large">
-                <v-icon start>mdi-check</v-icon>
-                {{ isEditing ? 'Update Patient' : 'Create Patient' }}
-              </v-btn>
-
-              <v-btn
-                variant="outlined"
-                size="large"
-                @click="$router.push('/patients')"
-              >
-                Cancel
-              </v-btn>
-            </v-col>
-          </v-row>
-        </v-form>
-      </v-card-text>
+        <div class="actions">
+          <v-btn type="submit" color="primary" size="large" :loading="patientStore.loading">
+            <v-icon start>mdi-check</v-icon>
+            {{ isEditing ? 'Update patient' : 'Create patient' }}
+          </v-btn>
+          <router-link to="/patients">
+            <v-btn size="large" variant="text">Cancel</v-btn>
+          </router-link>
+        </div>
+      </v-form>
     </v-card>
   </div>
 </template>
@@ -173,10 +103,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePatientStore } from '@/stores/patient'
+import { useUIStore } from '@/stores/ui'
+import SectionHeader from '@/components/ui/SectionHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
 const patientStore = usePatientStore()
+const uiStore = useUIStore()
 const form = ref()
 
 const isEditing = computed(() => !!route.params.id)
@@ -196,75 +129,123 @@ const formData = reactive({
   active: true,
 })
 
+const genderOptions = ['female', 'male', 'other', 'unknown']
+const requiredRule = (value: string) => (!!value && value.trim().length > 0) || 'Required'
+
 onMounted(async () => {
-  if (isEditing.value) {
-    const id = route.params.id as string
-    await patientStore.fetchPatientById(id)
-
-    if (patientStore.currentPatient) {
-      const patient = patientStore.currentPatient
-      const name = patient.name[0]
-      const address = patient.address[0]
-      const email = patient.telecom?.find(t => t.system === 'email')
-      const phone = patient.telecom?.find(t => t.system === 'phone')
-
-      formData.firstName = name?.given?.[0] || ''
-      formData.lastName = name?.family || ''
-      formData.gender = patient.gender || 'unknown'
-      formData.birthDate = patient.birthDate || ''
-      formData.email = email?.value || ''
-      formData.phone = phone?.value || ''
-      formData.addressLine = address?.line?.[0] || ''
-      formData.city = address?.city || ''
-      formData.state = address?.state || ''
-      formData.postalCode = address?.postalCode || ''
-      formData.country = address?.country || ''
-      formData.active = patient.active
-    }
-  }
+  if (!isEditing.value) return
+  await patientStore.fetchPatientById(route.params.id as string)
+  const patient = patientStore.currentPatient
+  if (!patient) return
+  const name = patient.name?.[0]
+  const address = patient.address?.[0]
+  const email = patient.telecom?.find(t => t.system === 'email')
+  const phone = patient.telecom?.find(t => t.system === 'phone')
+  formData.firstName = name?.given?.[0] ?? ''
+  formData.lastName = name?.family ?? ''
+  formData.gender = patient.gender ?? 'unknown'
+  formData.birthDate = patient.birthDate ?? ''
+  formData.email = email?.value ?? ''
+  formData.phone = phone?.value ?? ''
+  formData.addressLine = address?.line?.[0] ?? ''
+  formData.city = address?.city ?? ''
+  formData.state = address?.state ?? ''
+  formData.postalCode = address?.postalCode ?? ''
+  formData.country = address?.country ?? ''
+  formData.active = patient.active
 })
 
 const submitForm = async () => {
-  if (form.value && await form.value.validate()) {
-    // TODO: Build proper Patient object from form data
-    const patientData = {
-      resourceType: 'Patient' as const,
-      name: [{
-        given: [formData.firstName],
+  const result = await form.value?.validate()
+  if (!result?.valid) return
+
+  const payload = {
+    resourceType: 'Patient' as const,
+    name: [
+      {
+        given: [formData.firstName].filter(Boolean),
         family: formData.lastName,
-      }],
-      gender: formData.gender as any,
-      birthDate: formData.birthDate,
-      telecom: [
-        { system: 'email' as const, value: formData.email },
-        { system: 'phone' as const, value: formData.phone },
-      ],
-      address: [{
+      },
+    ],
+    gender: formData.gender as any,
+    birthDate: formData.birthDate,
+    telecom: [
+      ...(formData.email ? [{ system: 'email' as const, value: formData.email }] : []),
+      ...(formData.phone ? [{ system: 'phone' as const, value: formData.phone }] : []),
+    ],
+    address: [
+      {
         line: formData.addressLine ? [formData.addressLine] : [],
         city: formData.city,
         state: formData.state,
         postalCode: formData.postalCode,
         country: formData.country,
-      }],
-      active: formData.active,
-      identifier: [],
+      },
+    ],
+    active: formData.active,
+    identifier: [],
+  }
+
+  try {
+    if (isEditing.value) {
+      await patientStore.updatePatient(route.params.id as string, payload as any)
+    } else {
+      await patientStore.createPatient(payload as any)
     }
 
-    try {
-      if (isEditing.value) {
-        await patientStore.updatePatient(route.params.id as string, patientData as any)
-      } else {
-        await patientStore.createPatient(patientData as any)
-      }
-
-      router.push('/patients')
-      patientStore.addNotification(
-        `Patient ${isEditing.value ? 'updated' : 'created'} successfully`,
-        'success',
-      )
-    } catch (error) {
-      console.error('Failed to save patient:', error)
-    }
+    uiStore.addNotification(`Patient ${isEditing.value ? 'updated' : 'created'} successfully`, 'success')
+    router.push('/patients')
+  } catch (error) {
+    uiStore.addNotification('Unable to save patient', 'error')
+    console.error('Failed to save patient:', error)
   }
 }
 </script>
+
+<style scoped>
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.panel {
+  border-radius: var(--cf-radius-lg);
+  box-shadow: var(--cf-shadow-soft);
+  padding: 2rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.form-grid h3 {
+  margin: 0 0 0.25rem;
+}
+
+.form-grid p {
+  margin: 0;
+  color: var(--cf-text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.actions {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+@media (max-width: 960px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -1,158 +1,124 @@
 <template>
-  <div class="pa-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center mb-6">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-800">Appointments</h1>
-        <p class="text-gray-600 mt-1">Schedule and manage appointments</p>
+  <div class="page">
+    <SectionHeader
+      title="Appointments"
+      description="Orchestration between the appointment service and downstream events"
+      eyebrow="Scheduling"
+    >
+      <template #actions>
+        <router-link to="/appointments/new">
+          <v-btn color="primary" prepend-icon="mdi-plus">New appointment</v-btn>
+        </router-link>
+      </template>
+    </SectionHeader>
+
+    <v-card class="panel">
+      <div class="filters">
+        <v-text-field
+          v-model="searchQuery"
+          label="Search appointments"
+          prepend-inner-icon="mdi-magnify"
+          variant="solo"
+          hide-details
+          clearable
+        />
+        <v-select
+          v-model="appointmentStore.filterStatus"
+          :items="statusOptions"
+          label="Status"
+          variant="solo"
+          hide-details
+          @update:model-value="value => appointmentStore.setFilterStatus(value)"
+        />
       </div>
 
-      <router-link to="/appointments/new">
-        <v-btn color="primary" prepend-icon="mdi-plus" size="large">
-          New Appointment
-        </v-btn>
-      </router-link>
-    </div>
+      <v-divider></v-divider>
 
-    <!-- Search and Filter -->
-    <v-card class="mb-6">
-      <v-card-text class="pt-4">
-        <v-row>
-          <v-col cols="12" md="6">
-            <v-text-field
-              v-model="searchQuery"
-              label="Search appointments..."
-              prepend-inner-icon="mdi-magnify"
-              variant="outlined"
-              density="compact"
-              clearable
-            />
-          </v-col>
-
-          <v-col cols="12" md="6">
-            <v-select
-              v-model="appointmentStore.filterStatus"
-              :items="statusOptions"
-              label="Filter by status"
-              variant="outlined"
-              density="compact"
-              @update:model-value="appointmentStore.setFilterStatus"
-            />
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
-
-    <!-- Loading State -->
-    <v-card v-if="appointmentStore.loading" class="mb-6">
-      <v-card-text class="text-center py-8">
+      <div v-if="appointmentStore.loading" class="state">
         <v-progress-circular indeterminate color="primary" />
-        <p class="mt-4 text-gray-600">Loading appointments...</p>
-      </v-card-text>
-    </v-card>
+        <p>Loading appointments…</p>
+      </div>
 
-    <!-- Error State -->
-    <v-card v-else-if="appointmentStore.error" class="mb-6" color="error">
-      <v-card-text class="d-flex align-center gap-3">
-        <v-icon color="white">mdi-alert-circle</v-icon>
-        <div>
-          <p class="text-white font-medium">Error loading appointments</p>
-          <p class="text-white text-sm">{{ appointmentStore.error }}</p>
+      <v-alert v-else-if="appointmentStore.error" type="error" variant="tonal" class="ma-6">
+        {{ appointmentStore.error }}
+      </v-alert>
+
+      <template v-else>
+        <div v-if="pagedAppointments.length" class="table-wrapper">
+          <v-table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Status</th>
+                <th>Participant</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="appointment in pagedAppointments" :key="appointment.id">
+                <td>
+                  <div class="cell-primary">
+                    <h4>{{ appointment.description }}</h4>
+                    <p>{{ appointment.id }}</p>
+                  </div>
+                </td>
+                <td>{{ formatDateTime(appointment.start) }}</td>
+                <td>{{ formatDateTime(appointment.end) }}</td>
+                <td>
+                  <v-chip size="small" :color="statusColor(appointment.status)" variant="flat">
+                    {{ formatStatus(appointment.status) }}
+                  </v-chip>
+                </td>
+                <td>{{ appointment.participant?.[0]?.actor?.display || 'Unassigned' }}</td>
+                <td class="actions">
+                  <router-link :to="`/appointments/${appointment.id}/edit`">
+                    <v-btn icon variant="text">
+                      <v-icon>mdi-pencil-outline</v-icon>
+                    </v-btn>
+                  </router-link>
+                  <v-btn icon variant="text" color="error" @click="deleteAppointment(appointment.id)">
+                    <v-icon>mdi-trash-can-outline</v-icon>
+                  </v-btn>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
         </div>
-      </v-card-text>
+
+        <EmptyState
+          v-else
+          icon="mdi-calendar-multiselect"
+          title="No appointments"
+          description="Trigger the appointment service to emit booked events and update the dashboard."
+        >
+          <template #actions>
+            <router-link to="/appointments/new">
+              <v-btn color="primary">Create appointment</v-btn>
+            </router-link>
+          </template>
+        </EmptyState>
+
+        <div v-if="filteredAppointments.length > itemsPerPage" class="pagination">
+          <v-pagination
+            v-model="currentPage"
+            :length="totalPages"
+            rounded="circle"
+            color="primary"
+          />
+        </div>
+      </template>
     </v-card>
-
-    <!-- Appointments Table -->
-    <v-card v-else>
-      <v-table v-if="appointmentStore.hasAppointments">
-        <thead>
-          <tr>
-            <th class="text-left">Description</th>
-            <th class="text-left">Start Time</th>
-            <th class="text-left">End Time</th>
-            <th class="text-left">Status</th>
-            <th class="text-left">Participant</th>
-            <th class="text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="appointment in filteredAppointments" :key="appointment.id">
-            <td>
-              <strong>{{ appointment.description }}</strong>
-            </td>
-            <td>{{ formatDateTime(appointment.start) }}</td>
-            <td>{{ formatDateTime(appointment.end) }}</td>
-            <td>
-              <v-chip :color="getStatusColor(appointment.status)" variant="elevated" size="small">
-                {{ capitalize(appointment.status) }}
-              </v-chip>
-            </td>
-            <td>
-              {{ appointment.participant?.[0]?.actor?.display || 'N/A' }}
-            </td>
-            <td class="text-center">
-              <v-btn
-                icon
-                size="x-small"
-                variant="text"
-                color="primary"
-                title="View"
-              >
-                <v-icon size="small">mdi-eye</v-icon>
-              </v-btn>
-
-              <router-link :to="`/appointments/${appointment.id}/edit`">
-                <v-btn
-                  icon
-                  size="x-small"
-                  variant="text"
-                  color="info"
-                  title="Edit"
-                >
-                  <v-icon size="small">mdi-pencil</v-icon>
-                </v-btn>
-              </router-link>
-
-              <v-btn
-                icon
-                size="x-small"
-                variant="text"
-                color="error"
-                title="Delete"
-                @click="deleteAppointment(appointment.id)"
-              >
-                <v-icon size="small">mdi-trash-can</v-icon>
-              </v-btn>
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-
-      <v-card-text v-else class="text-center py-12 text-gray-600">
-        <v-icon size="48" class="mb-4 text-gray-400">mdi-calendar-check</v-icon>
-        <p class="text-lg">No appointments found</p>
-        <router-link to="/appointments/new" class="mt-4">
-          <v-btn color="primary" variant="outlined">
-            Create First Appointment
-          </v-btn>
-        </router-link>
-      </v-card-text>
-    </v-card>
-
-    <!-- Pagination (Placeholder) -->
-    <div v-if="appointmentStore.hasAppointments" class="mt-6 flex justify-center">
-      <v-pagination
-        v-model="currentPage"
-        :length="totalPages"
-        color="primary"
-      />
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useAppointmentStore } from '@/stores/appointment'
+import SectionHeader from '@/components/ui/SectionHeader.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { formatDateTime } from '@/utils/formatters'
 
 const appointmentStore = useAppointmentStore()
 const searchQuery = ref('')
@@ -171,64 +137,117 @@ const statusOptions = [
 ]
 
 onMounted(async () => {
-  await appointmentStore.fetchAppointments()
+  if (!appointmentStore.appointments.length) {
+    await appointmentStore.fetchAppointments()
+  }
 })
 
 const filteredAppointments = computed(() => {
-  let filtered = appointmentStore.filteredAppointments
-
+  let dataset = appointmentStore.filteredAppointments
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(appointment => {
-      return appointment.description.toLowerCase().includes(query)
-    })
+    dataset = dataset.filter(appointment => appointment.description.toLowerCase().includes(query))
   }
-
-  return filtered
+  return dataset
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredAppointments.value.length / itemsPerPage)
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredAppointments.value.length / itemsPerPage)))
+
+const pagedAppointments = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  return filteredAppointments.value.slice(start, start + itemsPerPage)
 })
 
-const getStatusColor = (status: string) => {
+const statusColor = (status: string) => {
   const colors: Record<string, string> = {
-    proposed: 'info',
-    pending: 'warning',
     booked: 'success',
-    arrived: 'primary',
-    fulfilled: 'success',
+    pending: 'warning',
     cancelled: 'error',
+    fulfilled: 'primary',
+    proposed: 'info',
     noshow: 'error',
   }
   return colors[status] || 'secondary'
 }
 
-const formatDateTime = (dateString: string) => {
-  return new Date(dateString).toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-const capitalize = (text: string) => {
-  return text
-    .replace(/([A-Z])/g, ' $1')
-    .charAt(0)
-    .toUpperCase() + text.slice(1)
-}
+const formatStatus = (status: string) => status.charAt(0).toUpperCase() + status.slice(1)
 
 const deleteAppointment = async (id: string) => {
-  if (confirm('Are you sure you want to delete this appointment?')) {
-    try {
-      await appointmentStore.deleteAppointment(id)
-      appointmentStore.clearError()
-    } catch (error) {
-      console.error('Failed to delete appointment:', error)
-    }
+  if (!confirm('Delete this appointment?')) return
+  try {
+    await appointmentStore.deleteAppointment(id)
+  } catch (error) {
+    console.error('Failed to delete appointment:', error)
   }
 }
 </script>
+
+<style scoped>
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.panel {
+  border-radius: var(--cf-radius-lg);
+  box-shadow: var(--cf-shadow-soft);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.state {
+  padding: 3rem 0;
+  text-align: center;
+  color: var(--cf-text-muted);
+  display: grid;
+  gap: 1rem;
+}
+
+.table-wrapper {
+  padding: 1.5rem;
+}
+
+thead tr {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  color: var(--cf-text-muted);
+}
+
+.cell-primary h4 {
+  margin: 0;
+}
+
+.cell-primary p {
+  margin: 0;
+  color: var(--cf-text-muted);
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.pagination {
+  padding: 1rem 0 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 840px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+  .table-wrapper {
+    overflow-x: auto;
+  }
+}
+</style>

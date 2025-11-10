@@ -1,227 +1,137 @@
 <template>
-  <div class="pa-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center mb-6">
-      <router-link to="/patients">
-        <v-btn icon variant="text" color="primary">
-          <v-icon>mdi-arrow-left</v-icon>
-        </v-btn>
-      </router-link>
+  <div class="page">
+    <router-link to="/patients" class="breadcrumb">
+      <v-icon size="18" class="mr-1">mdi-chevron-left</v-icon>
+      Patients
+    </router-link>
 
-      <div class="flex-1">
-        <h1 class="text-3xl font-bold text-gray-800">Patient Details</h1>
-      </div>
+    <SectionHeader
+      v-if="patientStore.currentPatient"
+      :title="patientFullName(patientStore.currentPatient)"
+      :description="primaryTelecom(patientStore.currentPatient)"
+      eyebrow="Patient detail"
+    >
+      <template #actions>
+        <router-link :to="`/patients/${patientStore.currentPatient.id}/edit`">
+          <v-btn variant="text" prepend-icon="mdi-pencil">Edit</v-btn>
+        </router-link>
+        <router-link to="/appointments/new">
+          <v-btn color="primary" prepend-icon="mdi-plus">New appointment</v-btn>
+        </router-link>
+      </template>
+    </SectionHeader>
 
-      <router-link v-if="patientStore.currentPatient" :to="`/patients/${patientStore.currentPatient.id}/edit`">
-        <v-btn color="primary" prepend-icon="mdi-pencil">
-          Edit
-        </v-btn>
-      </router-link>
+    <div v-if="patientStore.loading" class="state">
+      <v-progress-circular indeterminate color="primary" />
+      <p>Retrieving FHIR resource…</p>
     </div>
 
-    <!-- Loading State -->
-    <v-card v-if="patientStore.loading" class="mb-6">
-      <v-card-text class="text-center py-8">
-        <v-progress-circular indeterminate color="primary" />
-        <p class="mt-4 text-gray-600">Loading patient details...</p>
-      </v-card-text>
-    </v-card>
+    <v-alert v-else-if="patientStore.error" type="error" variant="tonal">
+      {{ patientStore.error }}
+    </v-alert>
 
-    <!-- Error State -->
-    <v-card v-else-if="patientStore.error" class="mb-6" color="error">
-      <v-card-text class="d-flex align-center gap-3">
-        <v-icon color="white">mdi-alert-circle</v-icon>
-        <div>
-          <p class="text-white font-medium">Error loading patient</p>
-          <p class="text-white text-sm">{{ patientStore.error }}</p>
-        </div>
-      </v-card-text>
-    </v-card>
-
-    <!-- Patient Details -->
-    <div v-else-if="patientStore.currentPatient">
-      <v-row>
-        <!-- Main Information -->
-        <v-col cols="12" md="8">
-          <v-card class="mb-6">
-            <v-card-title class="pb-4">Personal Information</v-card-title>
-            <v-divider></v-divider>
-            <v-card-text class="pt-6">
-              <v-row>
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <label class="text-xs font-semibold text-gray-600">Full Name</label>
-                    <p class="text-lg font-medium text-gray-800">
-                      {{ getPatientName(patientStore.currentPatient) }}
-                    </p>
-                  </div>
-                </v-col>
-
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <label class="text-xs font-semibold text-gray-600">Gender</label>
-                    <p class="text-lg font-medium text-gray-800">
-                      {{ capitalize(patientStore.currentPatient.gender) }}
-                    </p>
-                  </div>
-                </v-col>
-
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <label class="text-xs font-semibold text-gray-600">Date of Birth</label>
-                    <p class="text-lg font-medium text-gray-800">
-                      {{ formatDate(patientStore.currentPatient.birthDate) }}
-                    </p>
-                  </div>
-                </v-col>
-
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <label class="text-xs font-semibold text-gray-600">Status</label>
-                    <v-chip
-                      :color="patientStore.currentPatient.active ? 'success' : 'error'"
-                      variant="elevated"
-                      size="small"
-                    >
-                      {{ patientStore.currentPatient.active ? 'Active' : 'Inactive' }}
-                    </v-chip>
-                  </div>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
-
-          <!-- Contact Information -->
-          <v-card class="mb-6">
-            <v-card-title class="pb-4">Contact Information</v-card-title>
-            <v-divider></v-divider>
-            <v-card-text class="pt-6">
-              <v-row>
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <label class="text-xs font-semibold text-gray-600">Email</label>
-                    <p class="text-gray-800">
-                      {{ getTelecom('email') || 'Not provided' }}
-                    </p>
-                  </div>
-                </v-col>
-
-                <v-col cols="12" sm="6">
-                  <div class="mb-4">
-                    <label class="text-xs font-semibold text-gray-600">Phone</label>
-                    <p class="text-gray-800">
-                      {{ getTelecom('phone') || 'Not provided' }}
-                    </p>
-                  </div>
-                </v-col>
-
-                <v-col cols="12">
-                  <div class="mb-4">
-                    <label class="text-xs font-semibold text-gray-600">Address</label>
-                    <p class="text-gray-800">
-                      {{
-                        getAddress()
-                          ? `${getAddress().line?.join(', ')}, ${getAddress().city}, ${getAddress().state}`
-                          : 'Not provided'
-                      }}
-                    </p>
-                  </div>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
-
-          <!-- Identifiers -->
-          <v-card v-if="patientStore.currentPatient.identifier?.length">
-            <v-card-title class="pb-4">Identifiers</v-card-title>
-            <v-divider></v-divider>
-            <v-card-text class="pt-6">
-              <v-list>
-                <v-list-item
-                  v-for="(id, idx) in patientStore.currentPatient.identifier"
-                  :key="idx"
-                >
-                  <v-list-item-title>{{ id.system }}</v-list-item-title>
-                  <v-list-item-subtitle>{{ id.value }}</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </v-col>
-
-        <!-- Sidebar -->
-        <v-col cols="12" md="4">
-          <!-- Metadata -->
-          <v-card class="mb-6">
-            <v-card-title class="pb-4 text-base">Information</v-card-title>
-            <v-divider></v-divider>
-            <v-card-text class="pt-4">
-              <div class="space-y-4">
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Patient ID</label>
-                  <p class="text-sm text-gray-800 font-mono">
-                    {{ patientStore.currentPatient.id }}
-                  </p>
-                </div>
-
-                <v-divider></v-divider>
-
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Created</label>
-                  <p class="text-sm text-gray-800">
-                    {{ formatDateTime(patientStore.currentPatient.meta?.created) }}
-                  </p>
-                </div>
-
-                <v-divider></v-divider>
-
-                <div>
-                  <label class="text-xs font-semibold text-gray-600">Last Updated</label>
-                  <p class="text-sm text-gray-800">
-                    {{ formatDateTime(patientStore.currentPatient.meta?.updated) }}
-                  </p>
-                </div>
+    <v-row v-else-if="patientStore.currentPatient" class="gap-y-6">
+      <v-col cols="12" md="8">
+        <v-card class="panel">
+          <div class="panel__section">
+            <h3>Demographics</h3>
+            <div class="grid">
+              <div>
+                <p>Gender</p>
+                <strong>{{ capitalize(patientStore.currentPatient.gender) }}</strong>
               </div>
-            </v-card-text>
-          </v-card>
+              <div>
+                <p>Date of birth</p>
+                <strong>{{ formatDate(patientStore.currentPatient.birthDate) }}</strong>
+              </div>
+              <div>
+                <p>Status</p>
+                <v-chip :color="patientStore.currentPatient.active ? 'success' : 'warning'">
+                  {{ patientStore.currentPatient.active ? 'Active' : 'Inactive' }}
+                </v-chip>
+              </div>
+            </div>
+          </div>
 
-          <!-- Quick Actions -->
-          <v-card>
-            <v-card-title class="pb-4 text-base">Actions</v-card-title>
-            <v-divider></v-divider>
-            <v-card-text class="pt-4 space-y-2">
-              <router-link :to="`/appointments/new`">
-                <v-btn block color="primary" variant="elevated">
-                  <v-icon start>mdi-plus</v-icon>
-                  New Appointment
-                </v-btn>
-              </router-link>
+          <v-divider></v-divider>
 
-              <v-btn block color="warning" variant="outlined">
-                <v-icon start>mdi-download</v-icon>
-                Export Record
-              </v-btn>
+          <div class="panel__section">
+            <h3>Contact</h3>
+            <div class="grid">
+              <div>
+                <p>Email</p>
+                <strong>{{ primaryTelecom(patientStore.currentPatient, 'email') }}</strong>
+              </div>
+              <div>
+                <p>Phone</p>
+                <strong>{{ primaryTelecom(patientStore.currentPatient, 'phone') }}</strong>
+              </div>
+              <div>
+                <p>Address</p>
+                <strong>{{ primaryAddress(patientStore.currentPatient) }}</strong>
+              </div>
+            </div>
+          </div>
 
-              <v-btn
-                block
-                color="error"
-                variant="text"
-                @click="deletePatient(patientStore.currentPatient?.id || '')"
+          <v-divider v-if="patientStore.currentPatient.identifier?.length"></v-divider>
+
+          <div v-if="patientStore.currentPatient.identifier?.length" class="panel__section">
+            <h3>Identifiers</h3>
+            <v-list>
+              <v-list-item
+                v-for="(identifier, idx) in patientStore.currentPatient.identifier"
+                :key="idx"
               >
-                <v-icon start>mdi-trash-can</v-icon>
-                Delete Patient
-              </v-btn>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-    </div>
+                <v-list-item-title>{{ identifier.system }}</v-list-item-title>
+                <v-list-item-subtitle>{{ identifier.value }}</v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+          </div>
+        </v-card>
+      </v-col>
 
-    <!-- Empty State -->
-    <v-card v-else class="text-center py-12">
-      <v-icon size="48" class="mb-4 text-gray-400">mdi-hospital-box</v-icon>
-      <p class="text-lg text-gray-600">Patient not found</p>
-    </v-card>
+      <v-col cols="12" md="4">
+        <v-card class="panel">
+          <div class="panel__section">
+            <p class="subtitle">Patient ID</p>
+            <code>{{ patientStore.currentPatient.id }}</code>
+          </div>
+          <v-divider></v-divider>
+          <div class="panel__section">
+            <p class="subtitle">Created</p>
+            <strong>{{ formatDateTime(patientStore.currentPatient.meta?.created) }}</strong>
+          </div>
+          <v-divider></v-divider>
+          <div class="panel__section">
+            <p class="subtitle">Last updated</p>
+            <strong>{{ formatDateTime(patientStore.currentPatient.meta?.updated) }}</strong>
+          </div>
+          <v-divider></v-divider>
+          <div class="panel__actions">
+            <v-btn variant="outlined" block prepend-icon="mdi-download">Export FHIR JSON</v-btn>
+            <v-btn color="error" block prepend-icon="mdi-trash-can" @click="handleDelete">
+              Delete patient
+            </v-btn>
+          </div>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <EmptyState
+      v-else
+      icon="mdi-hospital-box"
+      title="Patient not found"
+      description="Select a record from the list or create a new one to test the service."
+    >
+      <template #actions>
+        <router-link to="/patients">
+          <v-btn variant="text">Back to list</v-btn>
+        </router-link>
+        <router-link to="/patients/new">
+          <v-btn color="primary">New patient</v-btn>
+        </router-link>
+      </template>
+    </EmptyState>
   </div>
 </template>
 
@@ -229,56 +139,100 @@
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePatientStore } from '@/stores/patient'
-import type { Patient } from '@/stores/types'
+import SectionHeader from '@/components/ui/SectionHeader.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import { formatDate, formatDateTime, patientFullName, primaryTelecom, primaryAddress } from '@/utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
 const patientStore = usePatientStore()
 
 onMounted(async () => {
-  const id = route.params.id as string
-  await patientStore.fetchPatientById(id)
+  await patientStore.fetchPatientById(route.params.id as string)
 })
 
-const getPatientName = (patient: Patient) => {
-  const name = patient.name[0]
-  if (!name) return 'Unknown'
-  return `${name.given?.join(' ') || ''} ${name.family || ''}`.trim()
-}
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
 
-const getTelecom = (system: string) => {
-  return patientStore.currentPatient?.telecom?.find(t => t.system === system)?.value
-}
-
-const getAddress = () => {
-  return patientStore.currentPatient?.address?.[0]
-}
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
-
-const formatDateTime = (dateString?: string) => {
-  if (!dateString) return 'N/A'
-  return new Date(dateString).toLocaleString('en-US')
-}
-
-const capitalize = (text: string) => {
-  return text.charAt(0).toUpperCase() + text.slice(1)
-}
-
-const deletePatient = async (id: string) => {
-  if (confirm('Are you sure you want to delete this patient? This action cannot be undone.')) {
-    try {
-      await patientStore.deletePatient(id)
-      router.push('/patients')
-    } catch (error) {
-      console.error('Failed to delete patient:', error)
-    }
+const handleDelete = async () => {
+  if (!patientStore.currentPatient) return
+  if (!confirm('Delete this patient? This cannot be undone.')) return
+  try {
+    await patientStore.deletePatient(patientStore.currentPatient.id)
+    router.push('/patients')
+  } catch (error) {
+    console.error('Failed to delete patient:', error)
   }
 }
 </script>
+
+<style scoped>
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--cf-text-muted);
+}
+
+.state {
+  padding: 3rem 0;
+  text-align: center;
+  color: var(--cf-text-muted);
+  display: grid;
+  gap: 1rem;
+}
+
+.panel {
+  border-radius: var(--cf-radius-lg);
+  box-shadow: var(--cf-shadow-soft);
+}
+
+.panel__section {
+  padding: 1.5rem;
+}
+
+.panel__section .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.panel__section p {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  color: var(--cf-text-muted);
+}
+
+.panel__section strong {
+  font-size: 1rem;
+}
+
+.subtitle {
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  color: var(--cf-text-muted);
+}
+
+code {
+  background: rgba(15, 23, 42, 0.05);
+  padding: 0.4rem 0.6rem;
+  border-radius: 10px;
+  display: inline-block;
+}
+
+.panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem;
+}
+</style>

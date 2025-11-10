@@ -94,3 +94,17 @@ export interface UINotification {
   message: string
   duration?: number
 }
+
+export type ServiceHealthStatus = 'healthy' | 'degraded' | 'offline' | 'unknown'
+
+export interface ServiceStatus {
+  id: string
+  name: string
+  description: string
+  kind: 'REST' | 'gRPC' | 'Worker'
+  icon: string
+  endpoint?: string
+  status: ServiceHealthStatus
+  latencyMs?: number
+  lastChecked?: string
+}

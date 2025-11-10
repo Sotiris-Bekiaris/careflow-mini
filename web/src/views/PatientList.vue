@@ -1,166 +1,132 @@
 <template>
-  <div class="pa-6">
-    <!-- Page Header -->
-    <div class="flex justify-between items-center mb-6">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-800">Patients</h1>
-        <p class="text-gray-600 mt-1">Manage patient records</p>
+  <div class="page">
+    <SectionHeader
+      title="Patients"
+      description="FHIR-native records from the Go patient service"
+      eyebrow="Registry"
+    >
+      <template #actions>
+        <router-link to="/patients/new">
+          <v-btn color="primary" prepend-icon="mdi-plus">Add patient</v-btn>
+        </router-link>
+      </template>
+    </SectionHeader>
+
+    <v-card class="panel">
+      <div class="filters">
+        <v-text-field
+          v-model="searchQuery"
+          prepend-inner-icon="mdi-magnify"
+          label="Search by name or contact"
+          variant="solo"
+          density="comfortable"
+          hide-details
+          clearable
+        />
+        <v-select
+          v-model="filterGender"
+          :items="genderOptions"
+          label="Gender"
+          variant="solo"
+          density="comfortable"
+          hide-details
+        />
       </div>
 
-      <router-link to="/patients/new">
-        <v-btn color="primary" prepend-icon="mdi-plus" size="large">
-          Add Patient
-        </v-btn>
-      </router-link>
-    </div>
+      <v-divider></v-divider>
 
-    <!-- Search and Filter -->
-    <v-card class="mb-6">
-      <v-card-text class="pt-4">
-        <v-row>
-          <v-col cols="12" md="6">
-            <v-text-field
-              v-model="searchQuery"
-              label="Search patients..."
-              prepend-inner-icon="mdi-magnify"
-              variant="outlined"
-              density="compact"
-              clearable
-            />
-          </v-col>
-
-          <v-col cols="12" md="6">
-            <v-select
-              v-model="filterGender"
-              :items="['all', 'male', 'female', 'other', 'unknown']"
-              label="Filter by gender"
-              variant="outlined"
-              density="compact"
-            />
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
-
-    <!-- Loading State -->
-    <v-card v-if="patientStore.loading" class="mb-6">
-      <v-card-text class="text-center py-8">
+      <div v-if="patientStore.loading" class="state">
         <v-progress-circular indeterminate color="primary" />
-        <p class="mt-4 text-gray-600">Loading patients...</p>
-      </v-card-text>
-    </v-card>
+        <p>Loading patients from the gateway…</p>
+      </div>
 
-    <!-- Error State -->
-    <v-card v-else-if="patientStore.error" class="mb-6" color="error">
-      <v-card-text class="d-flex align-center gap-3">
-        <v-icon color="white">mdi-alert-circle</v-icon>
-        <div>
-          <p class="text-white font-medium">Error loading patients</p>
-          <p class="text-white text-sm">{{ patientStore.error }}</p>
+      <v-alert v-else-if="patientStore.error" type="error" variant="tonal" class="ma-6">
+        {{ patientStore.error }}
+      </v-alert>
+
+      <template v-else>
+        <div v-if="filteredPatients.length" class="table-wrapper">
+          <v-table>
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Gender</th>
+                <th>DOB</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="patient in pagedPatients" :key="patient.id">
+                <td>
+                  <div class="cell-primary">
+                    <h4>{{ patientFullName(patient) }}</h4>
+                    <p>ID: {{ patient.id }}</p>
+                  </div>
+                </td>
+                <td>
+                  <v-chip size="small" variant="flat">{{ capitalize(patient.gender) }}</v-chip>
+                </td>
+                <td>{{ formatDate(patient.birthDate) }}</td>
+                <td>{{ primaryTelecom(patient, 'email') }}</td>
+                <td>
+                  <v-chip size="small" :color="patient.active ? 'success' : 'warning'" variant="flat">
+                    {{ patient.active ? 'Active' : 'Inactive' }}
+                  </v-chip>
+                </td>
+                <td class="actions">
+                  <router-link :to="`/patients/${patient.id}`">
+                    <v-btn icon variant="text">
+                      <v-icon>mdi-eye-outline</v-icon>
+                    </v-btn>
+                  </router-link>
+                  <router-link :to="`/patients/${patient.id}/edit`">
+                    <v-btn icon variant="text">
+                      <v-icon>mdi-pencil-outline</v-icon>
+                    </v-btn>
+                  </router-link>
+                  <v-btn icon variant="text" color="error" @click="deletePatient(patient.id)">
+                    <v-icon>mdi-trash-can-outline</v-icon>
+                  </v-btn>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
         </div>
-      </v-card-text>
+
+        <EmptyState
+          v-else
+          icon="mdi-account-heart-outline"
+          title="No patients yet"
+          description="Create a patient to exercise the gRPC service and propagate data through the gateway."
+        >
+          <template #actions>
+            <router-link to="/patients/new">
+              <v-btn color="primary">Create patient</v-btn>
+            </router-link>
+          </template>
+        </EmptyState>
+
+        <div v-if="filteredPatients.length > itemsPerPage" class="pagination">
+          <v-pagination
+            v-model="currentPage"
+            :length="totalPages"
+            rounded="circle"
+            color="primary"
+          />
+        </div>
+      </template>
     </v-card>
-
-    <!-- Patients Table -->
-    <v-card v-else>
-      <v-table v-if="patientStore.hasPatients">
-        <thead>
-          <tr>
-            <th class="text-left">Name</th>
-            <th class="text-left">Gender</th>
-            <th class="text-left">Date of Birth</th>
-            <th class="text-left">Contact</th>
-            <th class="text-left">Status</th>
-            <th class="text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="patient in filteredPatients" :key="patient.id">
-            <td>
-              <strong>{{ getPatientName(patient) }}</strong>
-            </td>
-            <td>
-              <v-chip size="small" variant="outlined">
-                {{ capitalize(patient.gender) }}
-              </v-chip>
-            </td>
-            <td>{{ formatDate(patient.birthDate) }}</td>
-            <td>{{ getContactInfo(patient) }}</td>
-            <td>
-              <v-chip
-                size="small"
-                :color="patient.active ? 'success' : 'error'"
-                variant="elevated"
-              >
-                {{ patient.active ? 'Active' : 'Inactive' }}
-              </v-chip>
-            </td>
-            <td class="text-center">
-              <router-link :to="`/patients/${patient.id}`">
-                <v-btn
-                  icon
-                  size="x-small"
-                  variant="text"
-                  color="primary"
-                  title="View"
-                >
-                  <v-icon size="small">mdi-eye</v-icon>
-                </v-btn>
-              </router-link>
-
-              <router-link :to="`/patients/${patient.id}/edit`">
-                <v-btn
-                  icon
-                  size="x-small"
-                  variant="text"
-                  color="info"
-                  title="Edit"
-                >
-                  <v-icon size="small">mdi-pencil</v-icon>
-                </v-btn>
-              </router-link>
-
-              <v-btn
-                icon
-                size="x-small"
-                variant="text"
-                color="error"
-                title="Delete"
-                @click="deletePatient(patient.id)"
-              >
-                <v-icon size="small">mdi-trash-can</v-icon>
-              </v-btn>
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-
-      <v-card-text v-else class="text-center py-12 text-gray-600">
-        <v-icon size="48" class="mb-4 text-gray-400">mdi-hospital-box</v-icon>
-        <p class="text-lg">No patients found</p>
-        <router-link to="/patients/new" class="mt-4">
-          <v-btn color="primary" variant="outlined">
-            Create First Patient
-          </v-btn>
-        </router-link>
-      </v-card-text>
-    </v-card>
-
-    <!-- Pagination (Placeholder) -->
-    <div v-if="patientStore.hasPatients" class="mt-6 flex justify-center">
-      <v-pagination
-        v-model="currentPage"
-        :length="totalPages"
-        color="primary"
-      />
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { usePatientStore } from '@/stores/patient'
-import type { Patient } from '@/stores/types'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import SectionHeader from '@/components/ui/SectionHeader.vue'
+import { formatDate, patientFullName, primaryTelecom } from '@/utils/formatters'
 
 const patientStore = usePatientStore()
 const searchQuery = ref('')
@@ -168,65 +134,128 @@ const filterGender = ref('all')
 const currentPage = ref(1)
 const itemsPerPage = 10
 
+const genderOptions = [
+  { title: 'All genders', value: 'all' },
+  { title: 'Female', value: 'female' },
+  { title: 'Male', value: 'male' },
+  { title: 'Other', value: 'other' },
+  { title: 'Unknown', value: 'unknown' },
+]
+
 onMounted(async () => {
-  await patientStore.fetchPatients()
+  if (!patientStore.patients.length) {
+    await patientStore.fetchPatients()
+  }
 })
 
 const filteredPatients = computed(() => {
-  let filtered = patientStore.sortedPatients
-
+  let dataset = patientStore.sortedPatients
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(patient => {
-      const name = getPatientName(patient).toLowerCase()
-      const contact = getContactInfo(patient).toLowerCase()
+    dataset = dataset.filter(patient => {
+      const name = patientFullName(patient).toLowerCase()
+      const contact = primaryTelecom(patient).toLowerCase()
       return name.includes(query) || contact.includes(query)
     })
   }
-
   if (filterGender.value !== 'all') {
-    filtered = filtered.filter(patient => patient.gender === filterGender.value)
+    dataset = dataset.filter(patient => patient.gender === filterGender.value)
   }
-
-  return filtered
+  return dataset
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredPatients.value.length / itemsPerPage)
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredPatients.value.length / itemsPerPage)))
+
+const pagedPatients = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  return filteredPatients.value.slice(start, start + itemsPerPage)
 })
 
-const getPatientName = (patient: Patient) => {
-  const name = patient.name[0]
-  if (!name) return 'Unknown'
-  return `${name.given?.join(' ') || ''} ${name.family || ''}`.trim()
-}
-
-const getContactInfo = (patient: Patient) => {
-  const email = patient.telecom?.find(t => t.system === 'email')
-  const phone = patient.telecom?.find(t => t.system === 'phone')
-  return email?.value || phone?.value || 'N/A'
-}
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
-const capitalize = (text: string) => {
-  return text.charAt(0).toUpperCase() + text.slice(1)
-}
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
 
 const deletePatient = async (id: string) => {
-  if (confirm('Are you sure you want to delete this patient?')) {
-    try {
-      await patientStore.deletePatient(id)
-      patientStore.clearError()
-    } catch (error) {
-      console.error('Failed to delete patient:', error)
-    }
+  if (!confirm('Delete this patient record?')) return
+  try {
+    await patientStore.deletePatient(id)
+  } catch (error) {
+    console.error('Failed to delete patient:', error)
   }
 }
 </script>
+
+<style scoped>
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.panel {
+  border-radius: var(--cf-radius-lg);
+  box-shadow: var(--cf-shadow-soft);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.state {
+  padding: 3rem 0;
+  text-align: center;
+  color: var(--cf-text-muted);
+  display: grid;
+  gap: 1rem;
+}
+
+.table-wrapper {
+  padding: 0 1.5rem 1.5rem;
+}
+
+thead tr {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  color: var(--cf-text-muted);
+}
+
+tbody tr {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.cell-primary h4 {
+  margin: 0;
+}
+
+.cell-primary p {
+  margin: 0;
+  color: var(--cf-text-muted);
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.pagination {
+  padding: 1rem 0 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 840px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+  .actions {
+    justify-content: flex-start;
+  }
+  .table-wrapper {
+    overflow-x: auto;
+  }
+}
+</style>
