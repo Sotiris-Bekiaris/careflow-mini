@@ -16,6 +16,7 @@ type Service interface {
 	CreatePatient(ctx context.Context, req *patientv1.CreatePatientRequest) (*patientv1.CreatePatientResponse, error)
 	GetPatient(ctx context.Context, req *patientv1.GetPatientRequest) (*patientv1.GetPatientResponse, error)
 	UpdatePatient(ctx context.Context, req *patientv1.UpdatePatientRequest) (*patientv1.UpdatePatientResponse, error)
+	DeletePatient(ctx context.Context, req *patientv1.DeletePatientRequest) (*patientv1.DeletePatientResponse, error)
 	ListPatients(ctx context.Context, req *patientv1.ListPatientsRequest) (*patientv1.ListPatientsResponse, error)
 }
 
@@ -144,6 +145,38 @@ func (s *service) UpdatePatient(ctx context.Context, req *patientv1.UpdatePatien
 	return &patientv1.UpdatePatientResponse{
 		Patient: fhirToProto(fhirPatient),
 	}, nil
+}
+
+// DeletePatient deletes a patient record (soft delete).
+func (s *service) DeletePatient(ctx context.Context, req *patientv1.DeletePatientRequest) (*patientv1.DeletePatientResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "patient.DeletePatient")
+	defer span.End()
+
+	// Validate request
+	if req.Id == "" {
+		return nil, fmt.Errorf("patient ID is required")
+	}
+
+	// Delete from repository (soft delete)
+	if err := s.repo.Delete(ctx, req.Id); err != nil {
+		return nil, fmt.Errorf("failed to delete patient: %w", err)
+	}
+
+	// Publish patient.deleted event
+	event := events.Event{
+		Type:      events.PatientDeleted,
+		Timestamp: time.Now(),
+		Source:    "patient-svc",
+		Data: map[string]interface{}{
+			"patient_id": req.Id,
+		},
+	}
+	if err := s.publisher.Publish(event); err != nil {
+		// Log error but don't fail the request
+		span.RecordError(err)
+	}
+
+	return &patientv1.DeletePatientResponse{}, nil
 }
 
 // ListPatients lists patients with pagination.

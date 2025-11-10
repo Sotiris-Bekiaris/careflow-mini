@@ -48,6 +48,15 @@ func (h *Handler) UpdatePatient(ctx context.Context, req *patientv1.UpdatePatien
 	return resp, nil
 }
 
+// DeletePatient implements the DeletePatient RPC method.
+func (h *Handler) DeletePatient(ctx context.Context, req *patientv1.DeletePatientRequest) (*patientv1.DeletePatientResponse, error) {
+	resp, err := h.service.DeletePatient(ctx, req)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return resp, nil
+}
+
 // ListPatients implements the ListPatients RPC method.
 func (h *Handler) ListPatients(ctx context.Context, req *patientv1.ListPatientsRequest) (*patientv1.ListPatientsResponse, error) {
 	resp, err := h.service.ListPatients(ctx, req)

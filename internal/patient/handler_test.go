@@ -42,6 +42,14 @@ func (m *MockService) UpdatePatient(ctx context.Context, req *patientv1.UpdatePa
 	return args.Get(0).(*patientv1.UpdatePatientResponse), args.Error(1)
 }
 
+func (m *MockService) DeletePatient(ctx context.Context, req *patientv1.DeletePatientRequest) (*patientv1.DeletePatientResponse, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*patientv1.DeletePatientResponse), args.Error(1)
+}
+
 func (m *MockService) ListPatients(ctx context.Context, req *patientv1.ListPatientsRequest) (*patientv1.ListPatientsResponse, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {

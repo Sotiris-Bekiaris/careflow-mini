@@ -15,8 +15,10 @@ import (
 
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/fhir"
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/observability"
+	appointmentv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/appointment/v1"
 	patientv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/patient/v1"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -28,8 +30,9 @@ import (
 )
 
 type server struct {
-	patientClient patientv1.PatientServiceClient
-	tracer        trace.Tracer
+	patientClient     patientv1.PatientServiceClient
+	appointmentClient appointmentv1.AppointmentServiceClient
+	tracer            trace.Tracer
 }
 
 func main() {
@@ -66,9 +69,22 @@ func main() {
 	}
 	defer func() { _ = patientConn.Close() }()
 
+	// Connect to Appointment Service
+	appointmentSvcAddr := getEnv("APPOINTMENT_SVC_ADDR", "localhost:50052")
+	appointmentConn, err := grpc.NewClient(
+		appointmentSvcAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to appointment service: %v", err)
+	}
+	defer func() { _ = appointmentConn.Close() }()
+
 	srv := &server{
-		patientClient: patientv1.NewPatientServiceClient(patientConn),
-		tracer:        otel.Tracer("api-gateway"),
+		patientClient:     patientv1.NewPatientServiceClient(patientConn),
+		appointmentClient: appointmentv1.NewAppointmentServiceClient(appointmentConn),
+		tracer:            otel.Tracer("api-gateway"),
 	}
 
 	port := getEnv("PORT", "8080")
@@ -78,6 +94,8 @@ func main() {
 	mux.HandleFunc("/ready", srv.readyHandler)
 	mux.HandleFunc("/fhir/Patient", srv.patientHandler)
 	mux.HandleFunc("/fhir/Patient/", srv.patientByIDHandler) // Note trailing slash for ID matching
+	mux.HandleFunc("/fhir/Appointment", srv.appointmentHandler)
+	mux.HandleFunc("/fhir/Appointment/", srv.appointmentByIDHandler) // Note trailing slash for ID matching
 
 	// Wrap with OpenTelemetry middleware
 	handler := otelhttp.NewHandler(mux, "api-gateway",
@@ -175,6 +193,8 @@ func (s *server) patientByIDHandler(w http.ResponseWriter, r *http.Request) {
 		s.getPatientHandler(w, r.WithContext(ctx), id)
 	case http.MethodPut:
 		s.updatePatientHandler(w, r.WithContext(ctx), id)
+	case http.MethodDelete:
+		s.deletePatientHandler(w, r.WithContext(ctx), id)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -267,6 +287,22 @@ func (s *server) updatePatientHandler(w http.ResponseWriter, r *http.Request, id
 
 	resultPatient := protoToFHIR(resp.Patient)
 	respondJSON(w, http.StatusOK, resultPatient)
+}
+
+func (s *server) deletePatientHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "deletePatient")
+	defer span.End()
+
+	_, err := s.patientClient.DeletePatient(ctx, &patientv1.DeletePatientRequest{
+		Id: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/fhir+json")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *server) listPatientsHandler(w http.ResponseWriter, r *http.Request) {
@@ -486,6 +522,265 @@ type responseWriter struct {
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// appointmentHandler handles /fhir/Appointment (list and create)
+func (s *server) appointmentHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "appointmentHandler")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("http.method", r.Method))
+
+	switch r.Method {
+	case http.MethodGet:
+		s.listAppointmentsHandler(w, r.WithContext(ctx))
+	case http.MethodPost:
+		s.createAppointmentHandler(w, r.WithContext(ctx))
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// appointmentByIDHandler handles /fhir/Appointment/:id (get and cancel)
+func (s *server) appointmentByIDHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "appointmentByIDHandler")
+	defer span.End()
+
+	// Extract ID from path
+	id := strings.TrimPrefix(r.URL.Path, "/fhir/Appointment/")
+	if id == "" {
+		respondError(w, http.StatusBadRequest, "Appointment ID is required")
+		return
+	}
+
+	span.SetAttributes(
+		attribute.String("http.method", r.Method),
+		attribute.String("appointment.id", id),
+	)
+
+	switch r.Method {
+	case http.MethodGet:
+		s.getAppointmentHandler(w, r.WithContext(ctx), id)
+	case http.MethodDelete:
+		s.cancelAppointmentHandler(w, r.WithContext(ctx), id)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) createAppointmentHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "createAppointment")
+	defer span.End()
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Failed to read request body")
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	var fhirAppointment fhir.Appointment
+	if err := json.Unmarshal(body, &fhirAppointment); err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Convert FHIR to Proto
+	protoAppointment := fhirAppointmentToProto(&fhirAppointment)
+
+	// Call gRPC service
+	resp, err := s.appointmentClient.CreateAppointment(ctx, &appointmentv1.CreateAppointmentRequest{
+		Appointment: protoAppointment,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Convert Proto back to FHIR
+	resultAppointment := protoAppointmentToFHIR(resp.Appointment)
+
+	respondJSON(w, http.StatusCreated, resultAppointment)
+}
+
+func (s *server) getAppointmentHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "getAppointment")
+	defer span.End()
+
+	resp, err := s.appointmentClient.GetAppointment(ctx, &appointmentv1.GetAppointmentRequest{
+		Id: id,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	resultAppointment := protoAppointmentToFHIR(resp.Appointment)
+	respondJSON(w, http.StatusOK, resultAppointment)
+}
+
+func (s *server) cancelAppointmentHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "cancelAppointment")
+	defer span.End()
+
+	// Parse optional reason from query params
+	reason := r.URL.Query().Get("reason")
+
+	_, err := s.appointmentClient.CancelAppointment(ctx, &appointmentv1.CancelAppointmentRequest{
+		Id:     id,
+		Reason: reason,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/fhir+json")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *server) listAppointmentsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "listAppointments")
+	defer span.End()
+
+	// Parse query parameters
+	query := r.URL.Query()
+	patientID := query.Get("patientId")
+	pageSize := query.Get("pageSize")
+	pageToken := query.Get("pageToken")
+
+	req := &appointmentv1.ListAppointmentsRequest{
+		PatientId: patientID,
+		PageToken: pageToken,
+	}
+
+	if pageSize != "" {
+		var size int32
+		if _, err := fmt.Sscanf(pageSize, "%d", &size); err == nil {
+			req.PageSize = size
+		}
+	}
+
+	// Call gRPC service
+	resp, err := s.appointmentClient.ListAppointments(ctx, req)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Convert Proto appointments to FHIR
+	fhirAppointments := make([]fhir.Appointment, len(resp.Appointments))
+	for i, p := range resp.Appointments {
+		fhirAppointments[i] = *protoAppointmentToFHIR(p)
+	}
+
+	// Create FHIR Bundle response
+	bundle := struct {
+		ResourceType string             `json:"resourceType"`
+		Type         string             `json:"type"`
+		Entry        []fhir.Appointment `json:"entry"`
+		NextLink     string             `json:"link,omitempty"`
+	}{
+		ResourceType: "Bundle",
+		Type:         "searchset",
+		Entry:        fhirAppointments,
+		NextLink:     resp.NextPageToken,
+	}
+
+	respondJSON(w, http.StatusOK, bundle)
+}
+
+// fhirAppointmentToProto converts FHIR Appointment to Proto Appointment
+func fhirAppointmentToProto(f *fhir.Appointment) *appointmentv1.Appointment {
+	p := &appointmentv1.Appointment{
+		Id:          f.ID,
+		Status:      f.Status,
+		Description: f.Description,
+	}
+
+	// Extract patient and practitioner IDs from participants
+	for _, part := range f.Participant {
+		if part.Actor.Reference != "" {
+			// Naive approach: assume first participant is patient, others are practitioners
+			if p.PatientId == "" && part.Actor.Display != "" {
+				p.PatientId = part.Actor.Reference
+			} else if p.PractitionerId == "" {
+				p.PractitionerId = part.Actor.Reference
+			}
+		}
+	}
+
+	// Convert service type
+	if len(f.ServiceType) > 0 && len(f.ServiceType[0].Coding) > 0 {
+		p.ServiceType = f.ServiceType[0].Coding[0].Code
+	}
+
+	// Convert timestamps
+	if !f.Start.IsZero() {
+		p.Start = timestamppb.New(f.Start)
+	}
+	if !f.End.IsZero() {
+		p.End = timestamppb.New(f.End)
+	}
+
+	return p
+}
+
+// protoAppointmentToFHIR converts Proto Appointment to FHIR Appointment
+func protoAppointmentToFHIR(p *appointmentv1.Appointment) *fhir.Appointment {
+	f := &fhir.Appointment{
+		ID:          p.Id,
+		Status:      p.Status,
+		Description: p.Description,
+	}
+
+	// Build participants from patient and practitioner IDs
+	if p.PatientId != "" {
+		f.Participant = append(f.Participant, fhir.Participant{
+			Actor: fhir.Reference{
+				Reference: p.PatientId,
+				Display:   "Patient",
+			},
+			Status: "accepted",
+		})
+	}
+
+	if p.PractitionerId != "" {
+		f.Participant = append(f.Participant, fhir.Participant{
+			Actor: fhir.Reference{
+				Reference: p.PractitionerId,
+				Display:   "Practitioner",
+			},
+			Status: "accepted",
+		})
+	}
+
+	// Convert service type
+	if p.ServiceType != "" {
+		f.ServiceType = []fhir.CodeableConcept{
+			{
+				Coding: []fhir.Coding{
+					{
+						Code: p.ServiceType,
+					},
+				},
+			},
+		}
+	}
+
+	// Convert timestamps
+	if p.Start != nil {
+		f.Start = p.Start.AsTime()
+	}
+	if p.End != nil {
+		f.End = p.End.AsTime()
+	}
+
+	// Initialize meta
+	f.Meta = fhir.Meta{}
+
+	return f
 }
 
 func getEnv(key, defaultValue string) string {
