@@ -18,7 +18,6 @@ import (
 	appointmentv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/appointment/v1"
 	patientv1 "github.com/Sotiris-Bekiaris/careflow-mini/proto/patient/v1"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -26,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -33,6 +33,8 @@ import (
 type server struct {
 	patientClient     patientv1.PatientServiceClient
 	appointmentClient appointmentv1.AppointmentServiceClient
+	labAdapterConn    grpc.ClientConnInterface
+	notifyServiceConn grpc.ClientConnInterface
 	tracer            trace.Tracer
 }
 
@@ -82,9 +84,35 @@ func main() {
 	}
 	defer func() { _ = appointmentConn.Close() }()
 
+	// Connect to Lab Adapter (health check only)
+	labAdapterAddr := getEnv("LAB_ADAPTER_ADDR", "localhost:50053")
+	labAdapterConn, err := grpc.NewClient(
+		labAdapterAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to lab adapter: %v", err)
+	}
+	defer func() { _ = labAdapterConn.Close() }()
+
+	// Connect to Notify Service (health check only)
+	notifyServiceAddr := getEnv("NOTIFY_SVC_ADDR", "localhost:50054")
+	notifyServiceConn, err := grpc.NewClient(
+		notifyServiceAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to notify service: %v", err)
+	}
+	defer func() { _ = notifyServiceConn.Close() }()
+
 	srv := &server{
 		patientClient:     patientv1.NewPatientServiceClient(patientConn),
 		appointmentClient: appointmentv1.NewAppointmentServiceClient(appointmentConn),
+		labAdapterConn:    labAdapterConn,
+		notifyServiceConn: notifyServiceConn,
 		tracer:            otel.Tracer("api-gateway"),
 	}
 
@@ -138,7 +166,7 @@ func (s *server) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	// Check Patient Service connection
@@ -150,9 +178,49 @@ func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check Appointment Service connection
+	_, err = s.appointmentClient.ListAppointments(ctx, &appointmentv1.ListAppointmentsRequest{PageSize: 1})
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = fmt.Fprintln(w, `{"status":"not ready","error":"appointment service unavailable"}`)
+		return
+	}
+
+	// Check Lab Adapter health
+	if err := s.checkServiceHealth(ctx, s.labAdapterConn, "lab-adapter"); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = fmt.Fprintf(w, `{"status":"not ready","error":"lab-adapter unavailable: %s"}`+"\n", err.Error())
+		return
+	}
+
+	// Check Notify Service health
+	if err := s.checkServiceHealth(ctx, s.notifyServiceConn, "notify-svc"); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = fmt.Fprintf(w, `{"status":"not ready","error":"notify-svc unavailable: %s"}`+"\n", err.Error())
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintln(w, `{"status":"ready"}`)
+}
+
+// checkServiceHealth checks the gRPC health status of a service
+func (s *server) checkServiceHealth(ctx context.Context, conn grpc.ClientConnInterface, serviceName string) error {
+	healthClient := grpc_health_v1.NewHealthClient(conn)
+	resp, err := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+	if err != nil {
+		return fmt.Errorf("health check failed: %w", err)
+	}
+
+	if resp.Status != grpc_health_v1.HealthCheckResponse_SERVING {
+		return fmt.Errorf("service not serving (status: %v)", resp.Status)
+	}
+
+	return nil
 }
 
 // patientHandler handles /fhir/Patient (list and create)

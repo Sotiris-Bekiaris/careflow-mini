@@ -3,12 +3,16 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/Sotiris-Bekiaris/careflow-mini/pkg/events"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -18,6 +22,29 @@ func main() {
 	// TODO: Process notifications (email, SMS, etc.)
 
 	log.Println("Notify Service starting...")
+
+	// Setup gRPC health check server
+	grpcPort := "50054"
+
+	listener, err := net.Listen("tcp", ":"+grpcPort)
+	if err != nil {
+		log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
+	}
+
+	grpcServer := grpc.NewServer()
+
+	// Register health check service
+	healthServer := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	log.Printf("Notify Service health check starting on port %s...", grpcPort)
+
+	go func() {
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Fatalf("Failed to serve gRPC: %v", err)
+		}
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -60,6 +87,8 @@ func main() {
 	<-quit
 
 	log.Println("Shutting down Notify Service...")
+	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	grpcServer.GracefulStop()
 	cancel()
 	time.Sleep(1 * time.Second)
 	log.Println("Notify Service exited")
