@@ -4,15 +4,15 @@ import "time"
 
 // Patient represents a FHIR R4 Patient resource (simplified)
 type Patient struct {
-	ID         string    `json:"id"`
-	Identifier []string  `json:"identifier,omitempty"`
-	Active     bool      `json:"active"`
-	Name       HumanName `json:"name"`
-	Gender     string    `json:"gender,omitempty"`
-	BirthDate  string    `json:"birthDate,omitempty"`
-	Telecom    []Contact `json:"telecom,omitempty"`
-	Address    []Address `json:"address,omitempty"`
-	Meta       Meta      `json:"meta"`
+	ID         string       `json:"id"`
+	Identifier []string     `json:"identifier,omitempty"`
+	Active     bool         `json:"active"`
+	Name       []HumanName  `json:"name"`
+	Gender     string       `json:"gender,omitempty"`
+	BirthDate  string       `json:"birthDate,omitempty"`
+	Telecom    []Contact    `json:"telecom,omitempty"`
+	Address    []Address    `json:"address,omitempty"`
+	Meta       Meta         `json:"meta"`
 }
 
 // HumanName represents a person's name

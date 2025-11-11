@@ -31,6 +31,10 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	defaultCORSAllowedOrigins = "http://localhost:3001,http://127.0.0.1:3001"
+)
+
 type server struct {
 	patientClient     patientv1.PatientServiceClient
 	appointmentClient appointmentv1.AppointmentServiceClient
@@ -132,6 +136,7 @@ func main() {
 	}
 
 	port := getEnv("PORT", "8080")
+	corsAllowedOrigins := strings.Split(getEnv("CORS_ALLOWED_ORIGINS", defaultCORSAllowedOrigins), ",")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", srv.healthHandler)
@@ -148,9 +153,13 @@ func main() {
 		otelhttp.WithMessageEvents(otelhttp.ReadEvents, otelhttp.WriteEvents),
 	)
 
+	// Apply CORS middleware and logging
+	handler = corsMiddleware(corsAllowedOrigins, handler)
+	handler = loggingMiddleware(handler)
+
 	httpServer := &http.Server{
 		Addr:    ":" + port,
-		Handler: loggingMiddleware(handler),
+		Handler: handler,
 	}
 
 	// Graceful shutdown
@@ -458,10 +467,14 @@ func fhirToProto(f *fhir.Patient) *patientv1.Patient {
 	p := &patientv1.Patient{
 		Id:         f.ID,
 		Active:     f.Active,
-		FamilyName: f.Name.Family,
-		GivenNames: f.Name.Given,
 		Gender:     f.Gender,
 		BirthDate:  f.BirthDate,
+	}
+
+	// Extract first name from name array
+	if len(f.Name) > 0 {
+		p.FamilyName = f.Name[0].Family
+		p.GivenNames = f.Name[0].Given
 	}
 
 	// Convert telecom
@@ -498,10 +511,16 @@ func protoToFHIR(p *patientv1.Patient) *fhir.Patient {
 		Active:    p.Active,
 		Gender:    p.Gender,
 		BirthDate: p.BirthDate,
-		Name: fhir.HumanName{
-			Family: p.FamilyName,
-			Given:  p.GivenNames,
-		},
+	}
+
+	// Create name array from proto
+	if p.FamilyName != "" || len(p.GivenNames) > 0 {
+		f.Name = []fhir.HumanName{
+			{
+				Family: p.FamilyName,
+				Given:  p.GivenNames,
+			},
+		}
 	}
 
 	// Convert telecom
@@ -591,6 +610,42 @@ func respondGRPCError(w http.ResponseWriter, err error) {
 	}
 
 	respondError(w, httpStatus, st.Message())
+}
+
+// corsMiddleware handles CORS headers and preflight requests
+func corsMiddleware(allowedOrigins []string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+
+		// Check if origin is allowed
+		isAllowed := false
+		for _, allowed := range allowedOrigins {
+			// Trim whitespace from allowed origin
+			allowed = strings.TrimSpace(allowed)
+			if origin == allowed {
+				isAllowed = true
+				break
+			}
+		}
+
+		// Set CORS headers if origin is allowed
+		if isAllowed {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+			w.Header().Set("Access-Control-Max-Age", "86400")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Continue to next handler
+		next.ServeHTTP(w, r)
+	})
 }
 
 // loggingMiddleware logs HTTP requests
@@ -1098,19 +1153,19 @@ func fhirObservationToProto(f *fhir.Observation) *observationv1.Observation {
 	}
 
 	return &observationv1.Observation{
-		Id:                   f.ID,
-		Status:               f.Status,
-		PatientId:            patientID,
-		EffectiveDatetime:    timestamppb.New(f.EffectiveDateTime),
-		Issued:               timestamppb.New(f.Issued),
-		Code:                 code,
-		CodeSystem:           codeSystem,
-		ValueQuantityValue:   valueQuantityValue,
-		ValueQuantityUnit:    valueQuantityUnit,
-		ValueString:          f.ValueString,
-		Category:             categories,
-		ReferenceRangeLow:    referenceLow,
-		ReferenceRangeHigh:   referenceHigh,
+		Id:                 f.ID,
+		Status:             f.Status,
+		PatientId:          patientID,
+		EffectiveDatetime:  timestamppb.New(f.EffectiveDateTime),
+		Issued:             timestamppb.New(f.Issued),
+		Code:               code,
+		CodeSystem:         codeSystem,
+		ValueQuantityValue: valueQuantityValue,
+		ValueQuantityUnit:  valueQuantityUnit,
+		ValueString:        f.ValueString,
+		Category:           categories,
+		ReferenceRangeLow:  referenceLow,
+		ReferenceRangeHigh: referenceHigh,
 	}
 }
 
@@ -1158,8 +1213,8 @@ func protoObservationToFHIR(p *observationv1.Observation) *fhir.Observation {
 	}
 
 	return &fhir.Observation{
-		ID:     p.Id,
-		Status: p.Status,
+		ID:       p.Id,
+		Status:   p.Status,
 		Category: categories,
 		Code: fhir.CodeableConcept{
 			Coding: []fhir.Coding{

@@ -10,19 +10,37 @@ Ideal for learning distributed systems design or as a reference for healthcare p
 
 ## Quick Start
 
+### Backend Services
+
 ```bash
 git clone https://github.com/Sotiris-Bekiaris/careflow-mini.git
 cd careflow-mini
 
-make docker-up    # Start infrastructure
-make run-dev      # Build and run all services
+make docker-up    # Start infrastructure (Postgres, NATS, observability)
+make run-dev      # Build and run all backend services
 ```
 
-Access the system:
-- API: http://localhost:8080
-- Jaeger: http://localhost:16686
-- Grafana: http://localhost:3000 (admin/admin)
-- Prometheus: http://localhost:9090
+### Frontend (Vue 3)
+
+In a **new terminal**, from the project root:
+
+```bash
+cd web
+npm install      # Install dependencies
+npm run dev      # Start development server on http://localhost:3000
+```
+
+### Access the System
+
+| Component | URL | Credentials |
+|-----------|-----|-------------|
+| **Frontend** | http://localhost:3000 | - |
+| **API Gateway** | http://localhost:8080 | - |
+| **Jaeger (Tracing)** | http://localhost:16686 | - |
+| **Prometheus (Metrics)** | http://localhost:9090 | - |
+| **Grafana (Dashboards)** | http://localhost:3000 | admin/admin |
+
+> **Note**: The frontend uses CORS to communicate with the API. During development, the API Gateway allows requests from `http://localhost:3000` by default. See [Configuration](#configuration) to customize allowed origins.
 
 ## Architecture
 
@@ -108,17 +126,56 @@ graph TB
 ## Development
 
 ### Requirements
-Go 1.24+, Docker, Docker Compose, Make
 
-### Build Targets
+- **Backend**: Go 1.24+, Docker, Docker Compose, Make, buf (for protobuf)
+- **Frontend**: Node.js 18+, npm or yarn
+
+### Backend Build Targets
 
 ```bash
 make build        # Compile all services
 make test         # Run tests with race detection
 make lint         # Format and lint
 make proto        # Generate protobuf code
-make run-dev      # Full development environment
-make stop-dev     # Stop all services
+make run-dev      # Build and run all backend services
+make stop-dev     # Stop all services and clean up
+```
+
+### Frontend Development
+
+```bash
+cd web
+
+# Install dependencies
+npm install
+
+# Development server with hot reload
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build locally
+npm run preview
+
+# Linting and type checking
+npm run lint
+npm run type-check
+```
+
+### Full Local Setup
+
+```bash
+# Terminal 1: Start infrastructure and backend services
+make docker-up
+make run-dev
+
+# Terminal 2: Start frontend dev server
+cd web
+npm install
+npm run dev
+
+# Access at http://localhost:3000
 ```
 
 ### Testing
@@ -221,7 +278,21 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 PATIENT_SVC_ADDR=localhost:50051
 APPOINTMENT_SVC_ADDR=localhost:50052
 OBSERVATION_SVC_ADDR=localhost:50055
+
+# CORS (for API Gateway frontend communication)
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
+
+### Frontend Configuration
+
+The frontend uses Vite and environment variables prefixed with `VITE_`:
+
+```bash
+# .env or environment
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+See `web/.env.example` for all available options.
 
 ## Observability
 
@@ -252,6 +323,71 @@ All services automatically instrumented with OpenTelemetry. Traces show request 
 - Ensure HIPAA compliance for real patient data
 
 See `docs/security.md` for detailed security architecture.
+
+## Troubleshooting
+
+### Frontend cannot connect to API (CORS errors)
+
+**Problem**: Browser console shows `Access to XMLHttpRequest blocked by CORS policy`
+
+**Solution**:
+- Ensure API Gateway is running on port 8080
+- Verify frontend origin is in `CORS_ALLOWED_ORIGINS` environment variable
+- Default allows `http://localhost:3000` and `http://127.0.0.1:3000`
+- For production, set: `CORS_ALLOWED_ORIGINS=https://your-domain.com`
+
+### Frontend shows "Cannot GET /" or 404 errors
+
+**Problem**: Frontend assets not served after `npm run build`
+
+**Solution**:
+- In development: Use `npm run dev` (Vite dev server)
+- For production: Serve `web/dist/` directory with your web server
+- Configure web server to redirect all routes to `index.html` (Vue Router requirement)
+
+### Services fail to start
+
+**Problem**: `Connection refused` or `port already in use`
+
+**Solution**:
+```bash
+# Stop all running services
+make stop-dev
+
+# Clean up and restart
+make docker-down
+make docker-up
+make run-dev
+```
+
+### Database connection issues
+
+**Problem**: Services timeout connecting to PostgreSQL
+
+**Solution**:
+```bash
+# Check if Postgres is running
+docker ps | grep careflow-postgres
+
+# View logs
+docker logs careflow-postgres
+
+# Verify connection
+docker exec -it careflow-postgres psql -U careflow -d careflow -c "SELECT 1"
+```
+
+### NATS connection issues
+
+**Problem**: `Failed to connect to NATS`
+
+**Solution**:
+```bash
+# Check if NATS is running
+curl http://localhost:8222/varz | jq .
+
+# View NATS logs
+docker logs careflow-nats
+```
 
 ## Contributing
 

@@ -59,13 +59,17 @@ func (s *service) CreatePatient(ctx context.Context, req *patientv1.CreatePatien
 	}
 
 	// Publish patient.created event
+	patientName := ""
+	if len(fhirPatient.Name) > 0 {
+		patientName = fhirPatient.Name[0].Family
+	}
 	event := events.Event{
 		Type:      events.PatientCreated,
 		Timestamp: time.Now(),
 		Source:    "patient-svc",
 		Data: map[string]interface{}{
 			"patient_id": fhirPatient.ID,
-			"name":       fhirPatient.Name.Family,
+			"name":       patientName,
 		},
 	}
 	if err := s.publisher.Publish(event); err != nil {
@@ -127,13 +131,17 @@ func (s *service) UpdatePatient(ctx context.Context, req *patientv1.UpdatePatien
 	}
 
 	// Publish patient.updated event
+	patientName := ""
+	if len(fhirPatient.Name) > 0 {
+		patientName = fhirPatient.Name[0].Family
+	}
 	event := events.Event{
 		Type:      events.PatientUpdated,
 		Timestamp: time.Now(),
 		Source:    "patient-svc",
 		Data: map[string]interface{}{
 			"patient_id": fhirPatient.ID,
-			"name":       fhirPatient.Name.Family,
+			"name":       patientName,
 		},
 	}
 	if err := s.publisher.Publish(event); err != nil {
@@ -246,9 +254,11 @@ func protoToFHIR(p *patientv1.Patient) *fhir.Patient {
 	patient := &fhir.Patient{
 		ID:     p.Id,
 		Active: p.Active,
-		Name: fhir.HumanName{
-			Family: p.FamilyName,
-			Given:  p.GivenNames,
+		Name: []fhir.HumanName{
+			{
+				Family: p.FamilyName,
+				Given:  p.GivenNames,
+			},
 		},
 		Gender:    p.Gender,
 		BirthDate: p.BirthDate,
@@ -283,12 +293,16 @@ func protoToFHIR(p *patientv1.Patient) *fhir.Patient {
 // fhirToProto converts a FHIR Patient to a proto Patient.
 func fhirToProto(p *fhir.Patient) *patientv1.Patient {
 	patient := &patientv1.Patient{
-		Id:         p.ID,
-		FamilyName: p.Name.Family,
-		GivenNames: p.Name.Given,
-		Gender:     p.Gender,
-		BirthDate:  p.BirthDate,
-		Active:     p.Active,
+		Id:        p.ID,
+		Gender:    p.Gender,
+		BirthDate: p.BirthDate,
+		Active:    p.Active,
+	}
+
+	// Extract first name from name array
+	if len(p.Name) > 0 {
+		patient.FamilyName = p.Name[0].Family
+		patient.GivenNames = p.Name[0].Given
 	}
 
 	// Convert telecom
