@@ -115,6 +115,64 @@
           </div>
         </v-card>
       </v-col>
+
+      <v-col cols="12">
+        <v-card class="panel">
+          <div class="panel__section panel__section--header">
+            <div>
+              <p class="subtitle">Lab results</p>
+              <h3>Observations</h3>
+            </div>
+            <v-chip size="small" variant="tonal">
+              {{ observationStore.observations.length }} records
+            </v-chip>
+          </div>
+          <v-divider></v-divider>
+
+          <div v-if="observationStore.loading" class="state state--inline">
+            <v-progress-circular indeterminate color="primary" size="24" />
+            <p>Loading latest labs…</p>
+          </div>
+
+          <v-alert
+            v-else-if="observationStore.error"
+            type="error"
+            variant="tonal"
+            class="ma-4"
+          >
+            {{ observationStore.error }}
+          </v-alert>
+
+          <template v-else>
+            <v-list v-if="observationPreview.length" class="observation-list">
+              <v-list-item v-for="observation in observationPreview" :key="observation.id">
+                <template #prepend>
+                  <div class="observation-list__icon">
+                    <v-icon color="primary" size="20">mdi-flask-outline</v-icon>
+                  </div>
+                </template>
+                <v-list-item-title>{{ observationLabel(observation) }}</v-list-item-title>
+                <v-list-item-subtitle>
+                  {{ observationValue(observation) }} ·
+                  {{ formatDateTime(observation.effectiveDateTime) }}
+                </v-list-item-subtitle>
+                <template #append>
+                  <v-chip size="x-small" :color="observationStatusColor(observation.status)">
+                    {{ observation.status }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </v-list>
+
+            <div v-else class="state state--inline">
+              <p>No observations recorded for this patient yet.</p>
+              <router-link to="/">
+                <v-btn variant="text">Trigger lab adapter</v-btn>
+              </router-link>
+            </div>
+          </template>
+        </v-card>
+      </v-col>
     </v-row>
 
     <EmptyState
@@ -136,20 +194,55 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePatientStore } from '@/stores/patient'
+import { useObservationStore } from '@/stores/observation'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { formatDate, formatDateTime, patientFullName, primaryTelecom, primaryAddress } from '@/utils/formatters'
+import {
+  formatDate,
+  formatDateTime,
+  patientFullName,
+  primaryTelecom,
+  primaryAddress,
+  observationLabel,
+  observationValue,
+} from '@/utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
 const patientStore = usePatientStore()
+const observationStore = useObservationStore()
+
+const loadPatientContext = async (patientId: string) => {
+  await patientStore.fetchPatientById(patientId)
+  await observationStore.fetchObservations(patientId)
+}
 
 onMounted(async () => {
-  await patientStore.fetchPatientById(route.params.id as string)
+  await loadPatientContext(route.params.id as string)
 })
+
+watch(
+  () => route.params.id,
+  newId => {
+    if (typeof newId === 'string') {
+      loadPatientContext(newId)
+    }
+  },
+)
+
+const observationPreview = computed(() => observationStore.observations.slice(0, 5))
+const observationStatusColor = (status: string) => {
+  const mapping: Record<string, string> = {
+    final: 'success',
+    preliminary: 'warning',
+    amended: 'info',
+    registered: 'primary',
+  }
+  return mapping[status] || 'secondary'
+}
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
 
@@ -187,6 +280,11 @@ const handleDelete = async () => {
   gap: 1rem;
 }
 
+.state--inline {
+  padding: 1.25rem;
+  grid-template-columns: auto;
+}
+
 .panel {
   border-radius: var(--cf-radius-lg);
   box-shadow: var(--cf-shadow-soft);
@@ -214,6 +312,12 @@ const handleDelete = async () => {
   font-size: 1rem;
 }
 
+.panel__section--header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .subtitle {
   margin: 0 0 0.25rem;
   text-transform: uppercase;
@@ -236,3 +340,11 @@ code {
   padding: 1.5rem;
 }
 </style>
+.observation-list__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(10, 132, 255, 0.12);
+  display: grid;
+  place-items: center;
+}

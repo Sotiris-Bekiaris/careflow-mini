@@ -1,4 +1,4 @@
-import type { Patient } from '@/stores/types'
+import type { Observation, Patient } from '@/stores/types'
 
 const locale = 'en-US'
 
@@ -57,4 +57,18 @@ export const primaryAddress = (patient?: Patient) => {
   return [address.line?.join(', '), address.city, address.state, address.postalCode]
     .filter(Boolean)
     .join(', ')
+}
+
+export const observationLabel = (observation?: Observation) => {
+  if (!observation) return 'Observation'
+  const coding = observation.code?.coding?.[0]
+  return coding?.display || observation.code?.text || 'Observation'
+}
+
+export const observationValue = (observation?: Observation) => {
+  if (!observation) return '—'
+  if (observation.value?.value) {
+    return `${observation.value.value} ${observation.value.unit || ''}`.trim()
+  }
+  return observation.value?.unit || observation.value?.value?.toString() || '—'
 }
