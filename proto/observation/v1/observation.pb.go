@@ -579,6 +579,104 @@ func (x *UpdateObservationStatusResponse) GetObservation() *Observation {
 	return nil
 }
 
+// GenerateLabObservationsRequest represents a request to generate lab observations
+type GenerateLabObservationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PatientId     string                 `protobuf:"bytes,1,opt,name=patient_id,json=patientId,proto3" json:"patient_id,omitempty"` // Required: patient ID to generate observations for
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateLabObservationsRequest) Reset() {
+	*x = GenerateLabObservationsRequest{}
+	mi := &file_observation_v1_observation_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateLabObservationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateLabObservationsRequest) ProtoMessage() {}
+
+func (x *GenerateLabObservationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_observation_v1_observation_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateLabObservationsRequest.ProtoReflect.Descriptor instead.
+func (*GenerateLabObservationsRequest) Descriptor() ([]byte, []int) {
+	return file_observation_v1_observation_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GenerateLabObservationsRequest) GetPatientId() string {
+	if x != nil {
+		return x.PatientId
+	}
+	return ""
+}
+
+// GenerateLabObservationsResponse represents a response from generating lab observations
+type GenerateLabObservationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Observations  []*Observation         `protobuf:"bytes,1,rep,name=observations,proto3" json:"observations,omitempty"` // The generated observations
+	Count         int32                  `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`              // Number of observations generated
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenerateLabObservationsResponse) Reset() {
+	*x = GenerateLabObservationsResponse{}
+	mi := &file_observation_v1_observation_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenerateLabObservationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenerateLabObservationsResponse) ProtoMessage() {}
+
+func (x *GenerateLabObservationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_observation_v1_observation_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenerateLabObservationsResponse.ProtoReflect.Descriptor instead.
+func (*GenerateLabObservationsResponse) Descriptor() ([]byte, []int) {
+	return file_observation_v1_observation_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GenerateLabObservationsResponse) GetObservations() []*Observation {
+	if x != nil {
+		return x.Observations
+	}
+	return nil
+}
+
+func (x *GenerateLabObservationsResponse) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 var File_observation_v1_observation_proto protoreflect.FileDescriptor
 
 const file_observation_v1_observation_proto_rawDesc = "" +
@@ -627,12 +725,19 @@ const file_observation_v1_observation_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\"`\n" +
 	"\x1fUpdateObservationStatusResponse\x12=\n" +
-	"\vobservation\x18\x01 \x01(\v2\x1b.observation.v1.ObservationR\vobservation2\xc2\x03\n" +
+	"\vobservation\x18\x01 \x01(\v2\x1b.observation.v1.ObservationR\vobservation\"?\n" +
+	"\x1eGenerateLabObservationsRequest\x12\x1d\n" +
+	"\n" +
+	"patient_id\x18\x01 \x01(\tR\tpatientId\"x\n" +
+	"\x1fGenerateLabObservationsResponse\x12?\n" +
+	"\fobservations\x18\x01 \x03(\v2\x1b.observation.v1.ObservationR\fobservations\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x05R\x05count2\xbe\x04\n" +
 	"\x12ObservationService\x12h\n" +
 	"\x11CreateObservation\x12(.observation.v1.CreateObservationRequest\x1a).observation.v1.CreateObservationResponse\x12_\n" +
 	"\x0eGetObservation\x12%.observation.v1.GetObservationRequest\x1a&.observation.v1.GetObservationResponse\x12e\n" +
 	"\x10ListObservations\x12'.observation.v1.ListObservationsRequest\x1a(.observation.v1.ListObservationsResponse\x12z\n" +
-	"\x17UpdateObservationStatus\x12..observation.v1.UpdateObservationStatusRequest\x1a/.observation.v1.UpdateObservationStatusResponseB\xcd\x01\n" +
+	"\x17UpdateObservationStatus\x12..observation.v1.UpdateObservationStatusRequest\x1a/.observation.v1.UpdateObservationStatusResponse\x12z\n" +
+	"\x17GenerateLabObservations\x12..observation.v1.GenerateLabObservationsRequest\x1a/.observation.v1.GenerateLabObservationsResponseB\xcd\x01\n" +
 	"\x12com.observation.v1B\x10ObservationProtoP\x01ZLgithub.com/Sotiris-Bekiaris/careflow-mini/proto/observation/v1;observationv1\xa2\x02\x03OXX\xaa\x02\x0eObservation.V1\xca\x02\x0eObservation\\V1\xe2\x02\x1aObservation\\V1\\GPBMetadata\xea\x02\x0fObservation::V1b\x06proto3"
 
 var (
@@ -647,7 +752,7 @@ func file_observation_v1_observation_proto_rawDescGZIP() []byte {
 	return file_observation_v1_observation_proto_rawDescData
 }
 
-var file_observation_v1_observation_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_observation_v1_observation_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_observation_v1_observation_proto_goTypes = []any{
 	(*Observation)(nil),                     // 0: observation.v1.Observation
 	(*CreateObservationRequest)(nil),        // 1: observation.v1.CreateObservationRequest
@@ -658,31 +763,36 @@ var file_observation_v1_observation_proto_goTypes = []any{
 	(*ListObservationsResponse)(nil),        // 6: observation.v1.ListObservationsResponse
 	(*UpdateObservationStatusRequest)(nil),  // 7: observation.v1.UpdateObservationStatusRequest
 	(*UpdateObservationStatusResponse)(nil), // 8: observation.v1.UpdateObservationStatusResponse
-	(*timestamppb.Timestamp)(nil),           // 9: google.protobuf.Timestamp
+	(*GenerateLabObservationsRequest)(nil),  // 9: observation.v1.GenerateLabObservationsRequest
+	(*GenerateLabObservationsResponse)(nil), // 10: observation.v1.GenerateLabObservationsResponse
+	(*timestamppb.Timestamp)(nil),           // 11: google.protobuf.Timestamp
 }
 var file_observation_v1_observation_proto_depIdxs = []int32{
-	9,  // 0: observation.v1.Observation.effective_datetime:type_name -> google.protobuf.Timestamp
-	9,  // 1: observation.v1.Observation.issued:type_name -> google.protobuf.Timestamp
-	9,  // 2: observation.v1.Observation.created_at:type_name -> google.protobuf.Timestamp
-	9,  // 3: observation.v1.Observation.updated_at:type_name -> google.protobuf.Timestamp
+	11, // 0: observation.v1.Observation.effective_datetime:type_name -> google.protobuf.Timestamp
+	11, // 1: observation.v1.Observation.issued:type_name -> google.protobuf.Timestamp
+	11, // 2: observation.v1.Observation.created_at:type_name -> google.protobuf.Timestamp
+	11, // 3: observation.v1.Observation.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: observation.v1.CreateObservationRequest.observation:type_name -> observation.v1.Observation
 	0,  // 5: observation.v1.CreateObservationResponse.observation:type_name -> observation.v1.Observation
 	0,  // 6: observation.v1.GetObservationResponse.observation:type_name -> observation.v1.Observation
 	0,  // 7: observation.v1.ListObservationsResponse.observations:type_name -> observation.v1.Observation
 	0,  // 8: observation.v1.UpdateObservationStatusResponse.observation:type_name -> observation.v1.Observation
-	1,  // 9: observation.v1.ObservationService.CreateObservation:input_type -> observation.v1.CreateObservationRequest
-	3,  // 10: observation.v1.ObservationService.GetObservation:input_type -> observation.v1.GetObservationRequest
-	5,  // 11: observation.v1.ObservationService.ListObservations:input_type -> observation.v1.ListObservationsRequest
-	7,  // 12: observation.v1.ObservationService.UpdateObservationStatus:input_type -> observation.v1.UpdateObservationStatusRequest
-	2,  // 13: observation.v1.ObservationService.CreateObservation:output_type -> observation.v1.CreateObservationResponse
-	4,  // 14: observation.v1.ObservationService.GetObservation:output_type -> observation.v1.GetObservationResponse
-	6,  // 15: observation.v1.ObservationService.ListObservations:output_type -> observation.v1.ListObservationsResponse
-	8,  // 16: observation.v1.ObservationService.UpdateObservationStatus:output_type -> observation.v1.UpdateObservationStatusResponse
-	13, // [13:17] is the sub-list for method output_type
-	9,  // [9:13] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	0,  // 9: observation.v1.GenerateLabObservationsResponse.observations:type_name -> observation.v1.Observation
+	1,  // 10: observation.v1.ObservationService.CreateObservation:input_type -> observation.v1.CreateObservationRequest
+	3,  // 11: observation.v1.ObservationService.GetObservation:input_type -> observation.v1.GetObservationRequest
+	5,  // 12: observation.v1.ObservationService.ListObservations:input_type -> observation.v1.ListObservationsRequest
+	7,  // 13: observation.v1.ObservationService.UpdateObservationStatus:input_type -> observation.v1.UpdateObservationStatusRequest
+	9,  // 14: observation.v1.ObservationService.GenerateLabObservations:input_type -> observation.v1.GenerateLabObservationsRequest
+	2,  // 15: observation.v1.ObservationService.CreateObservation:output_type -> observation.v1.CreateObservationResponse
+	4,  // 16: observation.v1.ObservationService.GetObservation:output_type -> observation.v1.GetObservationResponse
+	6,  // 17: observation.v1.ObservationService.ListObservations:output_type -> observation.v1.ListObservationsResponse
+	8,  // 18: observation.v1.ObservationService.UpdateObservationStatus:output_type -> observation.v1.UpdateObservationStatusResponse
+	10, // 19: observation.v1.ObservationService.GenerateLabObservations:output_type -> observation.v1.GenerateLabObservationsResponse
+	15, // [15:20] is the sub-list for method output_type
+	10, // [10:15] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_observation_v1_observation_proto_init() }
@@ -696,7 +806,7 @@ func file_observation_v1_observation_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_observation_v1_observation_proto_rawDesc), len(file_observation_v1_observation_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

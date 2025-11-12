@@ -66,12 +66,18 @@
                   </div>
                 </td>
                 <td>
-                  <v-chip size="small" variant="flat">{{ capitalize(patient.gender) }}</v-chip>
+                  <v-chip size="small" variant="flat" color="black">{{
+                    capitalize(patient.gender)
+                  }}</v-chip>
                 </td>
                 <td>{{ formatDate(patient.birthDate) }}</td>
                 <td>{{ primaryTelecom(patient, 'email') }}</td>
                 <td>
-                  <v-chip size="small" :color="patient.active ? 'success' : 'warning'" variant="flat">
+                  <v-chip
+                    size="small"
+                    :color="patient.active ? 'success' : 'warning'"
+                    variant="flat"
+                  >
                     {{ patient.active ? 'Active' : 'Inactive' }}
                   </v-chip>
                 </td>
@@ -122,17 +128,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { usePatientStore } from '@/stores/patient'
-import EmptyState from '@/components/ui/EmptyState.vue'
-import SectionHeader from '@/components/ui/SectionHeader.vue'
-import { formatDate, patientFullName, primaryTelecom } from '@/utils/formatters'
+import { ref, computed, onMounted } from 'vue';
+import { usePatientStore } from '@/stores/patient';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import SectionHeader from '@/components/ui/SectionHeader.vue';
+import { formatDate, patientFullName, primaryTelecom } from '@/utils/formatters';
 
-const patientStore = usePatientStore()
-const searchQuery = ref('')
-const filterGender = ref('all')
-const currentPage = ref(1)
-const itemsPerPage = 10
+const patientStore = usePatientStore();
+const searchQuery = ref('');
+const filterGender = ref('all');
+const currentPage = ref(1);
+const itemsPerPage = 10;
 
 const genderOptions = [
   { title: 'All genders', value: 'all' },
@@ -140,47 +146,49 @@ const genderOptions = [
   { title: 'Male', value: 'male' },
   { title: 'Other', value: 'other' },
   { title: 'Unknown', value: 'unknown' },
-]
+];
 
 onMounted(async () => {
   if (!patientStore.patients.length) {
-    await patientStore.fetchPatients()
+    await patientStore.fetchPatients();
   }
-})
+});
 
 const filteredPatients = computed(() => {
-  let dataset = patientStore.sortedPatients
+  let dataset = patientStore.sortedPatients;
   if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
+    const query = searchQuery.value.toLowerCase();
     dataset = dataset.filter(patient => {
-      const name = patientFullName(patient).toLowerCase()
-      const contact = primaryTelecom(patient).toLowerCase()
-      return name.includes(query) || contact.includes(query)
-    })
+      const name = patientFullName(patient).toLowerCase();
+      const contact = primaryTelecom(patient).toLowerCase();
+      return name.includes(query) || contact.includes(query);
+    });
   }
   if (filterGender.value !== 'all') {
-    dataset = dataset.filter(patient => patient.gender === filterGender.value)
+    dataset = dataset.filter(patient => patient.gender === filterGender.value);
   }
-  return dataset
-})
+  return dataset;
+});
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredPatients.value.length / itemsPerPage)))
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredPatients.value.length / itemsPerPage)),
+);
 
 const pagedPatients = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  return filteredPatients.value.slice(start, start + itemsPerPage)
-})
+  const start = (currentPage.value - 1) * itemsPerPage;
+  return filteredPatients.value.slice(start, start + itemsPerPage);
+});
 
-const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 const deletePatient = async (id: string) => {
-  if (!confirm('Delete this patient record?')) return
+  if (!confirm('Delete this patient record?')) return;
   try {
-    await patientStore.deletePatient(id)
+    await patientStore.deletePatient(id);
   } catch (error) {
-    console.error('Failed to delete patient:', error)
+    console.error('Failed to delete patient:', error);
   }
-}
+};
 </script>
 
 <style scoped>

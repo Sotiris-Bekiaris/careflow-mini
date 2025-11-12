@@ -141,10 +141,12 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", srv.healthHandler)
 	mux.HandleFunc("/ready", srv.readyHandler)
+	mux.HandleFunc("/health/services", srv.healthServicesHandler)
 	mux.HandleFunc("/fhir/Patient", srv.patientHandler)
 	mux.HandleFunc("/fhir/Patient/", srv.patientByIDHandler) // Note trailing slash for ID matching
 	mux.HandleFunc("/fhir/Appointment", srv.appointmentHandler)
 	mux.HandleFunc("/fhir/Appointment/", srv.appointmentByIDHandler) // Note trailing slash for ID matching
+	mux.HandleFunc("/fhir/Observation/generate/", srv.generateLabObservationsHandler) // Generate lab data for patient
 	mux.HandleFunc("/fhir/Observation", srv.observationHandler)
 	mux.HandleFunc("/fhir/Observation/", srv.observationByIDHandler) // Note trailing slash for ID matching
 
@@ -243,6 +245,182 @@ func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintln(w, `{"status":"ready"}`)
+}
+
+// healthServicesHandler provides comprehensive health status for all services
+func (s *server) healthServicesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	type ServiceHealth struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Status    string `json:"status"`
+		LatencyMs int64  `json:"latencyMs"`
+		Message   string `json:"message,omitempty"`
+	}
+
+	type HealthResponse struct {
+		Timestamp string `json:"timestamp"`
+		Summary   struct {
+			Total    int `json:"total"`
+			Healthy  int `json:"healthy"`
+			Degraded int `json:"degraded"`
+			Offline  int `json:"offline"`
+		} `json:"summary"`
+		Services []ServiceHealth `json:"services"`
+	}
+
+	response := HealthResponse{
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+	response.Summary.Total = 6
+
+	// Helper function to determine status based on latency and error
+	determineStatus := func(latencyMs int64, err error) (string, string) {
+		if err != nil {
+			return "offline", err.Error()
+		}
+		if latencyMs > 2000 {
+			return "offline", "response time exceeded threshold"
+		}
+		if latencyMs > 500 {
+			return "degraded", "elevated response time"
+		}
+		return "healthy", "service is operational"
+	}
+
+	// Check API Gateway (self)
+	start := time.Now()
+	response.Services = append(response.Services, ServiceHealth{
+		ID:        "api-gateway",
+		Name:      "API Gateway",
+		Status:    "healthy",
+		LatencyMs: time.Since(start).Milliseconds(),
+		Message:   "service is operational",
+	})
+	response.Summary.Healthy++
+
+	// Check Patient Service
+	start = time.Now()
+	_, err := s.patientClient.ListPatients(ctx, &patientv1.ListPatientsRequest{PageSize: 1})
+	latency := time.Since(start).Milliseconds()
+	svcStatus, msg := determineStatus(latency, err)
+	response.Services = append(response.Services, ServiceHealth{
+		ID:        "patient-svc",
+		Name:      "Patient Service",
+		Status:    svcStatus,
+		LatencyMs: latency,
+		Message:   msg,
+	})
+	if svcStatus == "healthy" {
+		response.Summary.Healthy++
+	} else if svcStatus == "degraded" {
+		response.Summary.Degraded++
+	} else {
+		response.Summary.Offline++
+	}
+
+	// Check Appointment Service
+	start = time.Now()
+	_, err = s.appointmentClient.GetAppointment(ctx, &appointmentv1.GetAppointmentRequest{Id: "health-check"})
+	latency = time.Since(start).Milliseconds()
+	// NotFound is expected and means service is healthy
+	if err != nil {
+		grpcErr := status.Code(err)
+		if grpcErr == codes.NotFound || grpcErr == codes.InvalidArgument {
+			err = nil // Service is responding correctly
+		}
+	}
+	svcStatus, msg = determineStatus(latency, err)
+	response.Services = append(response.Services, ServiceHealth{
+		ID:        "appointment-svc",
+		Name:      "Appointment Service",
+		Status:    svcStatus,
+		LatencyMs: latency,
+		Message:   msg,
+	})
+	if svcStatus == "healthy" {
+		response.Summary.Healthy++
+	} else if svcStatus == "degraded" {
+		response.Summary.Degraded++
+	} else {
+		response.Summary.Offline++
+	}
+
+	// Check Observation Service
+	start = time.Now()
+	_, err = s.observationClient.GetObservation(ctx, &observationv1.GetObservationRequest{Id: "health-check"})
+	latency = time.Since(start).Milliseconds()
+	// NotFound is expected and means service is healthy
+	if err != nil {
+		grpcErr := status.Code(err)
+		if grpcErr == codes.NotFound || grpcErr == codes.InvalidArgument {
+			err = nil // Service is responding correctly
+		}
+	}
+	svcStatus, msg = determineStatus(latency, err)
+	response.Services = append(response.Services, ServiceHealth{
+		ID:        "observation-svc",
+		Name:      "Observation Service",
+		Status:    svcStatus,
+		LatencyMs: latency,
+		Message:   msg,
+	})
+	if svcStatus == "healthy" {
+		response.Summary.Healthy++
+	} else if svcStatus == "degraded" {
+		response.Summary.Degraded++
+	} else {
+		response.Summary.Offline++
+	}
+
+	// Check Lab Adapter
+	start = time.Now()
+	err = s.checkServiceHealth(ctx, s.labAdapterConn, "lab-adapter")
+	latency = time.Since(start).Milliseconds()
+	svcStatus, msg = determineStatus(latency, err)
+	response.Services = append(response.Services, ServiceHealth{
+		ID:        "lab-adapter",
+		Name:      "Lab Adapter",
+		Status:    svcStatus,
+		LatencyMs: latency,
+		Message:   msg,
+	})
+	if svcStatus == "healthy" {
+		response.Summary.Healthy++
+	} else if svcStatus == "degraded" {
+		response.Summary.Degraded++
+	} else {
+		response.Summary.Offline++
+	}
+
+	// Check Notify Service
+	start = time.Now()
+	err = s.checkServiceHealth(ctx, s.notifyServiceConn, "notify-svc")
+	latency = time.Since(start).Milliseconds()
+	svcStatus, msg = determineStatus(latency, err)
+	response.Services = append(response.Services, ServiceHealth{
+		ID:        "notify-svc",
+		Name:      "Notify Service",
+		Status:    svcStatus,
+		LatencyMs: latency,
+		Message:   msg,
+	})
+	if svcStatus == "healthy" {
+		response.Summary.Healthy++
+	} else if svcStatus == "degraded" {
+		response.Summary.Degraded++
+	} else {
+		response.Summary.Offline++
+	}
+
+	// Return JSON response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding health response: %v", err)
+	}
 }
 
 // checkServiceHealth checks the gRPC health status of a service
@@ -1161,6 +1339,59 @@ func (s *server) listObservationsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	respondJSON(w, http.StatusOK, bundle)
+}
+
+// generateLabObservationsHandler handles /fhir/Observation/generate/:patientId (POST)
+func (s *server) generateLabObservationsHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "generateLabObservationsHandler")
+	defer span.End()
+
+	// Only allow POST
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract patient ID from URL path: /fhir/Observation/generate/:patientId
+	patientID := strings.TrimPrefix(r.URL.Path, "/fhir/Observation/generate/")
+	if patientID == "" {
+		respondError(w, http.StatusBadRequest, "Patient ID is required in URL path")
+		return
+	}
+
+	// Call gRPC service to generate observations
+	resp, err := s.observationClient.GenerateLabObservations(ctx, &observationv1.GenerateLabObservationsRequest{
+		PatientId: patientID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Convert to FHIR observations
+	observations := make([]fhir.Observation, len(resp.Observations))
+	for i, obs := range resp.Observations {
+		protoObs := protoObservationToFHIR(obs)
+		observations[i] = *protoObs
+	}
+
+	// Return as FHIR bundle with generated observations
+	bundle := map[string]interface{}{
+		"resourceType": "Bundle",
+		"type":         "collection",
+		"total":        int(resp.Count),
+		"entry": func() []map[string]interface{} {
+			entries := make([]map[string]interface{}, len(observations))
+			for i, obs := range observations {
+				entries[i] = map[string]interface{}{
+					"resource": obs,
+				}
+			}
+			return entries
+		}(),
+	}
+
+	respondJSON(w, http.StatusCreated, bundle)
 }
 
 // fhirObservationToProto converts FHIR Observation to protobuf Observation

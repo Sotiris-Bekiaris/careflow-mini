@@ -45,3 +45,18 @@ export const createObservation = async (
     return null;
   }
 };
+
+/**
+ * Generate realistic lab observation data for a patient
+ */
+export const generateLabData = async (patientId: string): Promise<Observation[]> => {
+  try {
+    const response = await apiClient.post<{ entry: Array<{ resource: Observation }> }>(
+      `${OBSERVATION_ENDPOINT}/generate/${patientId}`,
+    );
+    return response.data.entry?.map(entry => entry.resource) || [];
+  } catch (error) {
+    console.error(`Failed to generate lab data for patient ${patientId}:`, error);
+    throw error;
+  }
+};

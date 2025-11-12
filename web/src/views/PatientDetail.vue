@@ -121,7 +121,19 @@
       <v-col cols="12">
         <v-card class="panel">
           <div class="panel__section">
-            <h3>Lab Results & Observations</h3>
+            <div class="section-header">
+              <h3>Lab Results & Observations</h3>
+              <v-btn
+                v-if="patientStore.currentPatient"
+                variant="outlined"
+                size="small"
+                prepend-icon="mdi-flask"
+                @click="showGenerateDialog = true"
+                :loading="generatingLabs"
+              >
+                Generate Lab Data
+              </v-btn>
+            </div>
             <p v-if="observationStore.loading" class="text-muted">Loading observations...</p>
             <p v-else-if="!observationStore.hasObservations" class="text-muted">
               No lab results recorded for this patient.
@@ -131,6 +143,7 @@
                 <tr>
                   <th>Test</th>
                   <th>Result</th>
+                  <th>Reference Range</th>
                   <th>Status</th>
                   <th>Date</th>
                 </tr>
@@ -141,7 +154,30 @@
                     <strong>{{ observation.code.text }}</strong>
                   </td>
                   <td>
-                    {{ observation.value.value }} {{ observation.value.unit }}
+                    <span
+                      :class="{
+                        'result-value': true,
+                        'result-abnormal': isAbnormal(observation),
+                      }"
+                    >
+                      {{ observation.valueQuantity.value }} {{ observation.valueQuantity.unit }}
+                      <v-icon
+                        v-if="isAbnormal(observation)"
+                        size="small"
+                        color="warning"
+                        class="ml-1"
+                      >
+                        mdi-alert-circle
+                      </v-icon>
+                    </span>
+                  </td>
+                  <td class="reference-range">
+                    <span v-if="observation.referenceRange && observation.referenceRange[0]">
+                      {{ observation.referenceRange[0].low?.value || '-' }} -
+                      {{ observation.referenceRange[0].high?.value || '-' }}
+                      {{ observation.valueQuantity.unit }}
+                    </span>
+                    <span v-else class="text-muted">N/A</span>
                   </td>
                   <td>
                     <v-chip
@@ -158,6 +194,35 @@
           </div>
         </v-card>
       </v-col>
+
+      <!-- Generate Lab Data Confirmation Dialog -->
+      <v-dialog v-model="showGenerateDialog" max-width="500">
+        <v-card>
+          <v-card-title class="text-h6">Generate Lab Data</v-card-title>
+          <v-card-text>
+            <p>
+              This will generate 8 realistic lab test observations for this patient, spanning the
+              past 30 days.
+            </p>
+            <p class="mt-2">
+              <strong>Note:</strong> Existing observations will not be deleted. New observations
+              will be added to the patient's record.
+            </p>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn variant="text" @click="showGenerateDialog = false">Cancel</v-btn>
+            <v-btn
+              color="primary"
+              variant="flat"
+              @click="handleGenerateLabData"
+              :loading="generatingLabs"
+            >
+              Generate
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </v-row>
 
     <EmptyState
@@ -179,51 +244,93 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { usePatientStore } from '@/stores/patient'
-import { useObservationStore } from '@/stores/observation'
-import SectionHeader from '@/components/ui/SectionHeader.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
-import { formatDate, formatDateTime, patientFullName, primaryTelecom, primaryAddress } from '@/utils/formatters'
+import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { usePatientStore } from '@/stores/patient';
+import { useObservationStore } from '@/stores/observation';
+import SectionHeader from '@/components/ui/SectionHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import {
+  formatDate,
+  formatDateTime,
+  patientFullName,
+  primaryTelecom,
+  primaryAddress,
+} from '@/utils/formatters';
 
-const route = useRoute()
-const router = useRouter()
-const patientStore = usePatientStore()
-const observationStore = useObservationStore()
+const route = useRoute();
+const router = useRouter();
+const patientStore = usePatientStore();
+const observationStore = useObservationStore();
+
+// Dialog state
+const showGenerateDialog = ref(false);
+const generatingLabs = ref(false);
 
 onMounted(async () => {
-  const patientId = route.params.id as string
-  await patientStore.fetchPatientById(patientId)
-  await observationStore.fetchPatientObservations(patientId)
-})
+  const patientId = route.params.id as string;
+  await patientStore.fetchPatientById(patientId);
+  await observationStore.fetchPatientObservations(patientId);
+});
 
-const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
+const isAbnormal = (observation: any) => {
+  if (!observation.referenceRange || !observation.referenceRange[0]) {
+    return false;
+  }
+
+  const value = observation.valueQuantity.value;
+  const range = observation.referenceRange[0];
+  const low = range.low?.value;
+  const high = range.high?.value;
+
+  if (low !== undefined && value < low) return true;
+  if (high !== undefined && value > high) return true;
+
+  return false;
+};
 
 const handleExport = () => {
-  if (!patientStore.currentPatient) return
-  const jsonStr = JSON.stringify(patientStore.currentPatient, null, 2)
-  const blob = new Blob([jsonStr], { type: 'application/fhir+json' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `patient-${patientStore.currentPatient.id}.json`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
+  if (!patientStore.currentPatient) return;
+  const jsonStr = JSON.stringify(patientStore.currentPatient, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/fhir+json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `patient-${patientStore.currentPatient.id}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
 
 const handleDelete = async () => {
-  if (!patientStore.currentPatient) return
-  if (!confirm('Delete this patient? This cannot be undone.')) return
+  if (!patientStore.currentPatient) return;
+  if (!confirm('Delete this patient? This cannot be undone.')) return;
   try {
-    await patientStore.deletePatient(patientStore.currentPatient.id)
-    router.push('/patients')
+    await patientStore.deletePatient(patientStore.currentPatient.id);
+    router.push('/patients');
   } catch (error) {
-    console.error('Failed to delete patient:', error)
+    console.error('Failed to delete patient:', error);
   }
-}
+};
+
+const handleGenerateLabData = async () => {
+  if (!patientStore.currentPatient) return;
+
+  generatingLabs.value = true;
+  try {
+    await observationStore.generateLabData(patientStore.currentPatient.id);
+    showGenerateDialog.value = false;
+    // Success - observations are already updated in the store
+  } catch (error) {
+    console.error('Failed to generate lab data:', error);
+    alert('Failed to generate lab data. Please try again.');
+  } finally {
+    generatingLabs.value = false;
+  }
+};
 </script>
 
 <style scoped>
@@ -255,6 +362,17 @@ const handleDelete = async () => {
 
 .panel__section {
   padding: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-header h3 {
+  margin: 0;
 }
 
 .panel__section .grid {
@@ -295,5 +413,21 @@ code {
   flex-direction: column;
   gap: 0.75rem;
   padding: 1.5rem;
+}
+
+.result-value {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.result-abnormal {
+  color: #f57c00;
+  font-weight: 600;
+}
+
+.reference-range {
+  color: var(--cf-text-muted);
+  font-size: 0.9rem;
 }
 </style>

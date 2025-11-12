@@ -76,7 +76,7 @@ export interface Observation {
     }>
     text: string
   }
-  value: {
+  valueQuantity: {
     value: number
     unit: string
   }
@@ -86,6 +86,16 @@ export interface Observation {
     display: string
   }
   effectiveDateTime: string
+  referenceRange?: Array<{
+    low?: {
+      value: number
+      unit: string
+    }
+    high?: {
+      value: number
+      unit: string
+    }
+  }>
 }
 
 export interface UINotification {

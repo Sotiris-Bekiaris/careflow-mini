@@ -13,8 +13,6 @@ const SERVICE_BLUEPRINTS: ServiceBlueprint[] = [
     description: 'REST facade + tracing middleware',
     kind: 'REST',
     icon: 'mdi-access-point-network',
-    endpoint: '/health',
-    probe: '/health',
   },
   {
     id: 'patient-svc',
@@ -22,8 +20,6 @@ const SERVICE_BLUEPRINTS: ServiceBlueprint[] = [
     description: 'gRPC CRUD for FHIR Patient',
     kind: 'gRPC',
     icon: 'mdi-account-heart',
-    endpoint: '/ready',
-    probe: '/ready',
   },
   {
     id: 'appointment-svc',
@@ -31,7 +27,13 @@ const SERVICE_BLUEPRINTS: ServiceBlueprint[] = [
     description: 'gRPC scheduler + NATS events',
     kind: 'gRPC',
     icon: 'mdi-calendar-clock',
-    fallbackStatus: 'unknown',
+  },
+  {
+    id: 'observation-svc',
+    name: 'Observation Service',
+    description: 'Lab results + FHIR observations',
+    kind: 'gRPC',
+    icon: 'mdi-test-tube',
   },
   {
     id: 'lab-adapter',
@@ -39,7 +41,6 @@ const SERVICE_BLUEPRINTS: ServiceBlueprint[] = [
     description: 'HL7 → FHIR worker pipeline',
     kind: 'Worker',
     icon: 'mdi-flask',
-    fallbackStatus: 'unknown',
   },
   {
     id: 'notify-svc',
@@ -47,58 +48,78 @@ const SERVICE_BLUEPRINTS: ServiceBlueprint[] = [
     description: 'Event consumer + alerts',
     kind: 'Worker',
     icon: 'mdi-bell-ring',
-    fallbackStatus: 'unknown',
   },
 ]
 
-type ProbeResult = {
-  ok: boolean
-  latencyMs: number
-}
-
-const getNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
-
-const runProbe = async (endpoint: string): Promise<ProbeResult> => {
-  const started = getNow()
-  try {
-    await apiClient.get(endpoint)
-    return {
-      ok: true,
-      latencyMs: Math.max(1, Math.round(getNow() - started)),
-    }
-  } catch (error) {
-    return {
-      ok: false,
-      latencyMs: Math.max(1, Math.round(getNow() - started)),
-    }
+type HealthServicesResponse = {
+  timestamp: string
+  summary: {
+    total: number
+    healthy: number
+    degraded: number
+    offline: number
   }
+  services: Array<{
+    id: string
+    name: string
+    status: string
+    latencyMs: number
+    message?: string
+  }>
 }
 
 export const fetchHealthSnapshot = async () => {
-  const timestamp = new Date().toISOString()
-  const probeResults: Record<string, ProbeResult> = {}
+  try {
+    const response = await apiClient.get<HealthServicesResponse>('/health/services')
+    const timestamp = response.data.timestamp
 
-  await Promise.all(
-    SERVICE_BLUEPRINTS.filter(service => service.probe).map(async service => {
-      const probe = await runProbe(service.probe!)
-      probeResults[service.id] = probe
-    }),
-  )
+    // Create a map of backend service data
+    const backendServices = new Map(response.data.services.map(s => [s.id, s]))
 
-  const statuses: ServiceStatus[] = SERVICE_BLUEPRINTS.map(service => {
-    const probe = probeResults[service.id]
-    let status: ServiceHealthStatus = service.fallbackStatus ?? 'offline'
-    if (probe) {
-      status = probe.ok ? 'healthy' : 'degraded'
-    }
-    const { probe: _probe, fallbackStatus, ...descriptor } = service
-    return {
-      ...descriptor,
-      status,
-      latencyMs: probe?.latencyMs,
+    // Merge backend data with frontend blueprints
+    const statuses: ServiceStatus[] = SERVICE_BLUEPRINTS.map(blueprint => {
+      const backendService = backendServices.get(blueprint.id)
+
+      if (backendService) {
+        // Use backend data
+        return {
+          id: blueprint.id,
+          name: blueprint.name,
+          description: blueprint.description,
+          kind: blueprint.kind,
+          icon: blueprint.icon,
+          status: backendService.status as ServiceHealthStatus,
+          latencyMs: backendService.latencyMs,
+          lastChecked: timestamp,
+        }
+      } else {
+        // Service not found in backend response - mark as offline
+        return {
+          id: blueprint.id,
+          name: blueprint.name,
+          description: blueprint.description,
+          kind: blueprint.kind,
+          icon: blueprint.icon,
+          status: 'offline',
+          lastChecked: timestamp,
+        }
+      }
+    })
+
+    return { statuses, timestamp }
+  } catch (error) {
+    console.error('Failed to fetch health snapshot:', error)
+    // Return all services as offline on error
+    const timestamp = new Date().toISOString()
+    const statuses: ServiceStatus[] = SERVICE_BLUEPRINTS.map(blueprint => ({
+      id: blueprint.id,
+      name: blueprint.name,
+      description: blueprint.description,
+      kind: blueprint.kind,
+      icon: blueprint.icon,
+      status: 'offline' as ServiceHealthStatus,
       lastChecked: timestamp,
-    }
-  })
-
-  return { statuses, timestamp }
+    }))
+    return { statuses, timestamp }
+  }
 }

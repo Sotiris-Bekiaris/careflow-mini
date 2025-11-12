@@ -23,6 +23,7 @@ const (
 	ObservationService_GetObservation_FullMethodName          = "/observation.v1.ObservationService/GetObservation"
 	ObservationService_ListObservations_FullMethodName        = "/observation.v1.ObservationService/ListObservations"
 	ObservationService_UpdateObservationStatus_FullMethodName = "/observation.v1.ObservationService/UpdateObservationStatus"
+	ObservationService_GenerateLabObservations_FullMethodName = "/observation.v1.ObservationService/GenerateLabObservations"
 )
 
 // ObservationServiceClient is the client API for ObservationService service.
@@ -39,6 +40,8 @@ type ObservationServiceClient interface {
 	ListObservations(ctx context.Context, in *ListObservationsRequest, opts ...grpc.CallOption) (*ListObservationsResponse, error)
 	// UpdateObservationStatus updates the status of an observation
 	UpdateObservationStatus(ctx context.Context, in *UpdateObservationStatusRequest, opts ...grpc.CallOption) (*UpdateObservationStatusResponse, error)
+	// GenerateLabObservations generates a set of realistic lab observations for a patient
+	GenerateLabObservations(ctx context.Context, in *GenerateLabObservationsRequest, opts ...grpc.CallOption) (*GenerateLabObservationsResponse, error)
 }
 
 type observationServiceClient struct {
@@ -89,6 +92,16 @@ func (c *observationServiceClient) UpdateObservationStatus(ctx context.Context, 
 	return out, nil
 }
 
+func (c *observationServiceClient) GenerateLabObservations(ctx context.Context, in *GenerateLabObservationsRequest, opts ...grpc.CallOption) (*GenerateLabObservationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateLabObservationsResponse)
+	err := c.cc.Invoke(ctx, ObservationService_GenerateLabObservations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ObservationServiceServer is the server API for ObservationService service.
 // All implementations must embed UnimplementedObservationServiceServer
 // for forward compatibility.
@@ -103,6 +116,8 @@ type ObservationServiceServer interface {
 	ListObservations(context.Context, *ListObservationsRequest) (*ListObservationsResponse, error)
 	// UpdateObservationStatus updates the status of an observation
 	UpdateObservationStatus(context.Context, *UpdateObservationStatusRequest) (*UpdateObservationStatusResponse, error)
+	// GenerateLabObservations generates a set of realistic lab observations for a patient
+	GenerateLabObservations(context.Context, *GenerateLabObservationsRequest) (*GenerateLabObservationsResponse, error)
 	mustEmbedUnimplementedObservationServiceServer()
 }
 
@@ -124,6 +139,9 @@ func (UnimplementedObservationServiceServer) ListObservations(context.Context, *
 }
 func (UnimplementedObservationServiceServer) UpdateObservationStatus(context.Context, *UpdateObservationStatusRequest) (*UpdateObservationStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateObservationStatus not implemented")
+}
+func (UnimplementedObservationServiceServer) GenerateLabObservations(context.Context, *GenerateLabObservationsRequest) (*GenerateLabObservationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateLabObservations not implemented")
 }
 func (UnimplementedObservationServiceServer) mustEmbedUnimplementedObservationServiceServer() {}
 func (UnimplementedObservationServiceServer) testEmbeddedByValue()                            {}
@@ -218,6 +236,24 @@ func _ObservationService_UpdateObservationStatus_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ObservationService_GenerateLabObservations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateLabObservationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObservationServiceServer).GenerateLabObservations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ObservationService_GenerateLabObservations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObservationServiceServer).GenerateLabObservations(ctx, req.(*GenerateLabObservationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ObservationService_ServiceDesc is the grpc.ServiceDesc for ObservationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -240,6 +276,10 @@ var ObservationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateObservationStatus",
 			Handler:    _ObservationService_UpdateObservationStatus_Handler,
+		},
+		{
+			MethodName: "GenerateLabObservations",
+			Handler:    _ObservationService_GenerateLabObservations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

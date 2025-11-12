@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -211,6 +212,104 @@ func (s *Service) UpdateObservationStatus(ctx context.Context, req *observationv
 	return &observationv1.UpdateObservationStatusResponse{
 		Observation: protoObservation,
 	}, nil
+}
+
+// GenerateLabObservations generates a set of realistic lab observations for a patient
+func (s *Service) GenerateLabObservations(ctx context.Context, patientID string) ([]*fhir.Observation, error) {
+	ctx, span := s.tracer.Start(ctx, "observation.GenerateLabObservations")
+	defer span.End()
+
+	if patientID == "" {
+		return nil, errors.New("patient_id is required")
+	}
+
+	span.SetAttributes(
+		attribute.String("patient.id", patientID),
+		attribute.Int("observation.count", len(labTestTemplates)),
+	)
+
+	// Initialize random seed
+	rand.Seed(time.Now().UnixNano())
+
+	// Generate timestamps for observations (8 observations over 30 days)
+	timestamps := generateObservationDateTimes(len(labTestTemplates))
+
+	createdObservations := make([]*fhir.Observation, 0, len(labTestTemplates))
+
+	// Generate one observation for each template
+	for i, template := range labTestTemplates {
+		value := template.generateRandomValue()
+		status := template.generateStatus()
+
+		observation := &fhir.Observation{
+			Status: status,
+			Code: fhir.CodeableConcept{
+				Coding: []fhir.Coding{
+					{
+						System:  template.System,
+						Code:    template.LoincCode,
+						Display: template.Display,
+					},
+				},
+				Text: template.Display,
+			},
+			Subject: fhir.Reference{
+				Reference: "Patient/" + patientID,
+			},
+			EffectiveDateTime: timestamps[i],
+			ValueQuantity: &fhir.Quantity{
+				Value:  value,
+				Unit:   template.Unit,
+				System: template.UnitSystem,
+				Code:   template.UnitCode,
+			},
+			ReferenceRange: []fhir.ReferenceRange{
+				{
+					Low: &fhir.Quantity{
+						Value: template.MinValue,
+						Unit:  template.Unit,
+					},
+					High: &fhir.Quantity{
+						Value: template.MaxValue,
+						Unit:  template.Unit,
+					},
+				},
+			},
+		}
+
+		// Create in database
+		created, err := s.repo.Create(ctx, observation)
+		if err != nil {
+			span.RecordError(err)
+			return nil, fmt.Errorf("failed to create observation for %s: %w", template.Display, err)
+		}
+
+		createdObservations = append(createdObservations, created)
+
+		// Publish event (non-blocking)
+		go func(obs *fhir.Observation) {
+			event := events.Event{
+				ID:        obs.ID,
+				Type:      events.ObservationCreated,
+				Timestamp: time.Now().UTC(),
+				Source:    "observation-svc",
+				Data: map[string]interface{}{
+					"id":         obs.ID,
+					"patient_id": patientID,
+					"code":       template.LoincCode,
+					"status":     obs.Status,
+					"generated":  true,
+				},
+			}
+			if err := s.publisher.Publish(event); err != nil {
+				fmt.Printf("Failed to publish observation.created event: %v\n", err)
+			}
+		}(created)
+	}
+
+	span.SetAttributes(attribute.Int("observations.created", len(createdObservations)))
+
+	return createdObservations, nil
 }
 
 // Conversion functions

@@ -1,4 +1,4 @@
-.PHONY: help build test lint clean run-dev stop-dev proto docker-up docker-down build-ui dev-ui lint-ui clean-ui
+.PHONY: help build test lint clean run-dev stop-dev proto docker-up docker-down seed-lab-data build-ui dev-ui lint-ui clean-ui
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  make stop-dev    - Stop local dev services"
 	@echo "  make docker-up   - Start Docker Compose stack"
 	@echo "  make docker-down - Stop Docker Compose stack"
+	@echo "  make seed-lab-data - Seed realistic lab observation data"
 	@echo "  make clean       - Clean backend build artifacts"
 	@echo ""
 	@echo "Frontend Targets (Vue 3 UI):"
@@ -65,6 +66,12 @@ docker-up:
 docker-down:
 	@echo "Stopping Docker Compose stack..."
 	@docker compose -f deploy/compose/docker-compose.yml down
+
+# Seed lab observation data
+seed-lab-data:
+	@echo "Seeding lab observation data..."
+	@docker exec -i careflow-postgres psql -U careflow -d careflow < scripts/db/seed-lab-data.sql
+	@echo "Lab data seeding complete!"
 
 # Stop local dev services
 stop-dev:

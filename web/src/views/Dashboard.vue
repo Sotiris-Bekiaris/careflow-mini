@@ -13,7 +13,9 @@
             <v-btn color="primary" size="large" prepend-icon="mdi-plus">New Patient</v-btn>
           </router-link>
           <router-link to="/appointments/new">
-            <v-btn variant="text" size="large" prepend-icon="mdi-sparkles">Schedule demo flow</v-btn>
+            <v-btn variant="text" size="large" prepend-icon="mdi-creation"
+              >Schedule demo flow</v-btn
+            >
           </router-link>
         </div>
       </div>
@@ -21,7 +23,11 @@
         <p>Stack pulse</p>
         <h3>{{ systemStore.healthyCount }} services healthy</h3>
         <p class="text-muted">
-          {{ systemStore.lastUpdated ? `Checked ${formatRelativeTime(systemStore.lastUpdated)}` : 'Awaiting first probe' }}
+          {{
+            systemStore.lastUpdated
+              ? `Checked ${formatRelativeTime(systemStore.lastUpdated)}`
+              : 'Awaiting first probe'
+          }}
         </p>
       </div>
     </section>
@@ -86,7 +92,11 @@
           <v-divider></v-divider>
 
           <div v-if="upcomingPreview.length" class="timeline">
-            <div v-for="appointment in upcomingPreview" :key="appointment.id" class="timeline__item">
+            <div
+              v-for="appointment in upcomingPreview"
+              :key="appointment.id"
+              class="timeline__item"
+            >
               <div class="timeline__dot"></div>
               <div>
                 <p class="timeline__title">{{ appointment.description }}</p>
@@ -124,39 +134,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { usePatientStore } from '@/stores/patient'
-import { useAppointmentStore } from '@/stores/appointment'
-import { useSystemStore } from '@/stores/system'
-import MetricCard from '@/components/ui/MetricCard.vue'
-import SectionHeader from '@/components/ui/SectionHeader.vue'
-import SystemStatusCard from '@/components/ui/SystemStatusCard.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
-import { formatDateTime, formatRelativeTime } from '@/utils/formatters'
+import { computed, onMounted } from 'vue';
+import { usePatientStore } from '@/stores/patient';
+import { useAppointmentStore } from '@/stores/appointment';
+import { useSystemStore } from '@/stores/system';
+import MetricCard from '@/components/ui/MetricCard.vue';
+import SectionHeader from '@/components/ui/SectionHeader.vue';
+import SystemStatusCard from '@/components/ui/SystemStatusCard.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import { formatDateTime, formatRelativeTime } from '@/utils/formatters';
 
-const patientStore = usePatientStore()
-const appointmentStore = useAppointmentStore()
-const systemStore = useSystemStore()
+const patientStore = usePatientStore();
+const appointmentStore = useAppointmentStore();
+const systemStore = useSystemStore();
 
 onMounted(async () => {
   if (!patientStore.patients.length) {
-    await patientStore.fetchPatients()
+    await patientStore.fetchPatients();
   }
   if (!appointmentStore.appointments.length) {
-    await appointmentStore.fetchAppointments()
+    await appointmentStore.fetchAppointments();
   }
   if (!systemStore.services.length) {
-    await systemStore.refresh()
+    await systemStore.refresh();
   }
-})
+});
 
-const upcomingPreview = computed(() => appointmentStore.upcomingAppointments.slice(0, 5))
+const upcomingPreview = computed(() => appointmentStore.upcomingAppointments.slice(0, 5));
 const cancelledCount = computed(
-  () => appointmentStore.appointments.filter(appointment => appointment.status === 'cancelled').length,
-)
+  () =>
+    appointmentStore.appointments.filter(appointment => appointment.status === 'cancelled').length,
+);
 
-const trendLabel = computed(() => `${cancelledCount.value} alerts`)
-const trendDirection = computed(() => (cancelledCount.value > 0 ? 'up' : 'flat'))
+const trendLabel = computed(() => `${cancelledCount.value} alerts`);
+const trendDirection = computed(() => (cancelledCount.value > 0 ? 'up' : 'flat'));
 
 const statusColor = (status: string) => {
   const mapping: Record<string, string> = {
@@ -164,11 +175,11 @@ const statusColor = (status: string) => {
     pending: 'warning',
     booked: 'success',
     proposed: 'info',
-  }
-  return mapping[status] || 'info'
-}
+  };
+  return mapping[status] || 'info';
+};
 
-const formatStatus = (status: string) => status.charAt(0).toUpperCase() + status.slice(1)
+const formatStatus = (status: string) => status.charAt(0).toUpperCase() + status.slice(1);
 </script>
 
 <style scoped>

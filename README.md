@@ -1,12 +1,10 @@
 # CareFlow-Mini
 
-A production-ready healthcare microservices reference architecture demonstrating modern cloud-native engineering patterns, FHIR R4 compliance, and comprehensive observability.
+A minimal healthcare microservices demo built to explore Go, gRPC, event-driven architecture, and FHIR concepts in a practical context.
 
 ## Overview
 
 CareFlow-Mini implements a patient journey from registration through appointment scheduling and lab result ingestion. It showcases real-world patterns for building scalable, observable microservices: gRPC for internal communication, REST API for external clients, PostgreSQL for storage, NATS for events, and OpenTelemetry for tracing.
-
-Ideal for learning distributed systems design or as a reference for healthcare platform development.
 
 ## Quick Start
 
@@ -32,13 +30,13 @@ npm run dev      # Start development server on http://localhost:3000
 
 ### Access the System
 
-| Component | URL | Credentials |
-|-----------|-----|-------------|
-| **Frontend** | http://localhost:3000 | - |
-| **API Gateway** | http://localhost:8080 | - |
-| **Jaeger (Tracing)** | http://localhost:16686 | - |
-| **Prometheus (Metrics)** | http://localhost:9090 | - |
-| **Grafana (Dashboards)** | http://localhost:3000 | admin/admin |
+| Component                | URL                    | Credentials |
+| ------------------------ | ---------------------- | ----------- |
+| **Frontend**             | http://localhost:3000  | -           |
+| **API Gateway**          | http://localhost:8080  | -           |
+| **Jaeger (Tracing)**     | http://localhost:16686 | -           |
+| **Prometheus (Metrics)** | http://localhost:9090  | -           |
+| **Grafana (Dashboards)** | http://localhost:3000  | admin/admin |
 
 > **Note**: The frontend uses CORS to communicate with the API. During development, the API Gateway allows requests from `http://localhost:3000` by default. See [Configuration](#configuration) to customize allowed origins.
 
@@ -102,14 +100,14 @@ graph TB
 
 ## Services
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| API Gateway | 8080 | REST API, routes to gRPC services, traces requests |
-| Patient Service | 50051 | CRUD operations for patients |
-| Appointment Service | 50052 | Appointment scheduling and cancellation |
-| Observation Service | 50055 | Lab results and clinical measurements |
-| Lab Adapter | 50053 | HL7 v2.x parser, maps to FHIR Observation |
-| Notify Service | 50054 | Event consumer for notifications |
+| Service             | Port  | Purpose                                            |
+| ------------------- | ----- | -------------------------------------------------- |
+| API Gateway         | 8080  | REST API, routes to gRPC services, traces requests |
+| Patient Service     | 50051 | CRUD operations for patients                       |
+| Appointment Service | 50052 | Appointment scheduling and cancellation            |
+| Observation Service | 50055 | Lab results and clinical measurements              |
+| Lab Adapter         | 50053 | HL7 v2.x parser, maps to FHIR Observation          |
+| Notify Service      | 50054 | Event consumer for notifications                   |
 
 ## Technology Stack
 
@@ -208,11 +206,13 @@ scripts/                # DB initialization, demo scripts
 ## Data Model
 
 **FHIR Resources** (stored as JSONB in PostgreSQL):
+
 - Patient - Demographics, identifiers, contact info
 - Appointment - Scheduled encounters with status
 - Observation - Lab results and clinical measurements
 
 **Domain Events** (published to NATS):
+
 - `patient.created`, `patient.updated`, `patient.deleted`
 - `appointment.created`, `appointment.cancelled`
 - `observation.created`
@@ -244,12 +244,14 @@ Full API docs in `docs/` directory.
 ## Deployment
 
 ### Local Development
+
 ```bash
 make docker-up    # Start infrastructure (Postgres, NATS, observability)
 make run-dev      # Build and run services
 ```
 
 ### Kubernetes
+
 ```bash
 helm install careflow deploy/helm/ \
   --namespace careflow \
@@ -303,26 +305,24 @@ See `web/.env.example` for all available options.
 
 All services automatically instrumented with OpenTelemetry. Traces show request paths through multiple services with latency breakdowns.
 
-## Testing & Quality
+## Testing
 
-- Table-driven unit tests for all business logic
-- Integration tests with testcontainers for real dependencies
-- CI/CD pipeline: lint → test → buf validation → build → security scan → smoke tests
-- 80%+ test coverage across packages
+- Table-driven unit tests for core business logic
+- Integration tests with testcontainers for key components
+- Basic CI/CD pipeline: lint → test → build
+- Work in progress: expanding test coverage
 
 ## Security
 
-**Development Focus**: This is a reference implementation. For production healthcare systems:
+**This is a demo project for learning purposes only.** It lacks critical security features needed for real healthcare systems:
 
-- Implement TLS/mTLS for all service communication
-- Add authentication (OAuth 2.0/OIDC) and authorization (RBAC)
-- Enable audit logging for data access
-- Encrypt data at rest and in transit
-- Implement rate limiting and input validation
-- Use secrets management systems (not env vars for production)
-- Ensure HIPAA compliance for real patient data
+- No authentication or authorization
+- No TLS/encryption for service communication
+- No audit logging or data access controls
+- Secrets in environment variables (not production-safe)
+- Not HIPAA compliant
 
-See `docs/security.md` for detailed security architecture.
+If building a real healthcare system, implement proper authentication (OAuth 2.0/OIDC), authorization (RBAC), TLS/mTLS, audit logging, and follow HIPAA guidelines.
 
 ## Troubleshooting
 
@@ -331,6 +331,7 @@ See `docs/security.md` for detailed security architecture.
 **Problem**: Browser console shows `Access to XMLHttpRequest blocked by CORS policy`
 
 **Solution**:
+
 - Ensure API Gateway is running on port 8080
 - Verify frontend origin is in `CORS_ALLOWED_ORIGINS` environment variable
 - Default allows `http://localhost:3000` and `http://127.0.0.1:3000`
@@ -341,6 +342,7 @@ See `docs/security.md` for detailed security architecture.
 **Problem**: Frontend assets not served after `npm run build`
 
 **Solution**:
+
 - In development: Use `npm run dev` (Vite dev server)
 - For production: Serve `web/dist/` directory with your web server
 - Configure web server to redirect all routes to `index.html` (Vue Router requirement)
@@ -350,6 +352,7 @@ See `docs/security.md` for detailed security architecture.
 **Problem**: `Connection refused` or `port already in use`
 
 **Solution**:
+
 ```bash
 # Stop all running services
 make stop-dev
@@ -365,6 +368,7 @@ make run-dev
 **Problem**: Services timeout connecting to PostgreSQL
 
 **Solution**:
+
 ```bash
 # Check if Postgres is running
 docker ps | grep careflow-postgres
@@ -381,6 +385,7 @@ docker exec -it careflow-postgres psql -U careflow -d careflow -c "SELECT 1"
 **Problem**: `Failed to connect to NATS`
 
 **Solution**:
+
 ```bash
 # Check if NATS is running
 curl http://localhost:8222/varz | jq .
@@ -408,11 +413,13 @@ Use conventional commits for messages.
 
 ## Performance
 
+Basic performance characteristics (local development):
+
 - Simple operations (patient lookup): 20-50ms
 - Complex workflows (create + publish event): 100-200ms
 - HL7 parsing: 5-10ms per message
 
-Horizontal scaling: Deploy multiple service instances behind a load balancer. Stateless services scale linearly. Database connection pooling and NATS handle increased throughput.
+The stateless service design allows for horizontal scaling, though this hasn't been load tested at scale.
 
 ## License
 
@@ -426,8 +433,10 @@ Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ## Roadmap
 
-- Expanded FHIR resource support (Medication, Procedure, Condition, etc.)
-- Additional HL7 message types (ADT, ORM, etc.)
-- Multi-tenant support
-- Machine learning for anomaly detection
-- Reference implementations in Rust and Python
+Potential future explorations:
+
+- Additional FHIR resources (Medication, Procedure, Condition)
+- More HL7 message types (ADT, ORM)
+- Improved test coverage
+- Authentication/authorization examples
+- Performance benchmarking

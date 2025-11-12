@@ -69,6 +69,24 @@ export const useObservationStore = defineStore('observation', () => {
     }
   }
 
+  const generateLabData = async (patientId: string) => {
+    loading.value = true
+    error.value = null
+    try {
+      const generated = await observationService.generateLabData(patientId)
+      // Update the observations for this patient
+      patientObservations.value.set(patientId, generated)
+      observations.value = generated
+      return generated
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to generate lab data'
+      console.error('Error generating lab data:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   const clearError = () => {
     error.value = null
   }
@@ -94,6 +112,7 @@ export const useObservationStore = defineStore('observation', () => {
     fetchPatientObservations,
     fetchObservationById,
     createObservation,
+    generateLabData,
     clearError,
     getPatientObservationsFromCache,
   }

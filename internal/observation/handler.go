@@ -58,6 +58,29 @@ func (h *Handler) UpdateObservationStatus(ctx context.Context, req *observationv
 	return resp, nil
 }
 
+// GenerateLabObservations implements ObservationService.GenerateLabObservations
+func (h *Handler) GenerateLabObservations(ctx context.Context, req *observationv1.GenerateLabObservationsRequest) (*observationv1.GenerateLabObservationsResponse, error) {
+	if req.PatientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "patient_id is required")
+	}
+
+	observations, err := h.service.GenerateLabObservations(ctx, req.PatientId)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	// Convert FHIR observations to proto
+	protoObservations := make([]*observationv1.Observation, len(observations))
+	for i, obs := range observations {
+		protoObservations[i] = fhirToProto(obs)
+	}
+
+	return &observationv1.GenerateLabObservationsResponse{
+		Observations: protoObservations,
+		Count:        int32(len(observations)),
+	}, nil
+}
+
 // mapError maps domain errors to gRPC status codes
 func mapError(err error) error {
 	if err == nil {

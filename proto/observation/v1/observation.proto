@@ -19,6 +19,9 @@ service ObservationService {
 
   // UpdateObservationStatus updates the status of an observation
   rpc UpdateObservationStatus(UpdateObservationStatusRequest) returns (UpdateObservationStatusResponse);
+
+  // GenerateLabObservations generates a set of realistic lab observations for a patient
+  rpc GenerateLabObservations(GenerateLabObservationsRequest) returns (GenerateLabObservationsResponse);
 }
 
 // Observation represents a lab result or clinical observation
@@ -83,4 +86,15 @@ message UpdateObservationStatusRequest {
 // UpdateObservationStatusResponse represents a response from updating observation status
 message UpdateObservationStatusResponse {
   Observation observation = 1;
+}
+
+// GenerateLabObservationsRequest represents a request to generate lab observations
+message GenerateLabObservationsRequest {
+  string patient_id = 1; // Required: patient ID to generate observations for
+}
+
+// GenerateLabObservationsResponse represents a response from generating lab observations
+message GenerateLabObservationsResponse {
+  repeated Observation observations = 1; // The generated observations
+  int32 count = 2; // Number of observations generated
 }
