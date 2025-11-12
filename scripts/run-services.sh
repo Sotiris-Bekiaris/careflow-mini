@@ -15,7 +15,7 @@ export LAB_ADAPTER_ADDR=localhost:50053
 export NOTIFY_SVC_ADDR=localhost:50054
 export OBSERVATION_SVC_ADDR=localhost:50055
 
-# Database (default credentials from docker-compose)
+# Database (default credentials from docker compose)
 export DB_HOST=localhost
 export DB_PORT=5432
 export DB_USER=careflow

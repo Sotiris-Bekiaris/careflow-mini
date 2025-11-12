@@ -10,6 +10,7 @@ const (
 	PatientUpdated       EventType = "patient.updated"
 	PatientDeleted       EventType = "patient.deleted"
 	AppointmentCreated   EventType = "appointment.created"
+	AppointmentUpdated   EventType = "appointment.updated"
 	AppointmentCancelled EventType = "appointment.cancelled"
 	ObservationCreated   EventType = "observation.created"
 )

@@ -59,12 +59,12 @@ clean:
 # Start Docker Compose stack
 docker-up:
 	@echo "Starting Docker Compose stack..."
-	@docker-compose -f deploy/compose/docker-compose.yml up -d
+	@docker compose -f deploy/compose/docker-compose.yml up -d
 
 # Stop Docker Compose stack
 docker-down:
 	@echo "Stopping Docker Compose stack..."
-	@docker-compose -f deploy/compose/docker-compose.yml down
+	@docker compose -f deploy/compose/docker-compose.yml down
 
 # Stop local dev services
 stop-dev:

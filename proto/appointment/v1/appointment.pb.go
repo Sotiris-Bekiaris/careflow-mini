@@ -417,6 +417,96 @@ func (x *ListAppointmentsResponse) GetNextPageToken() string {
 	return ""
 }
 
+// UpdateAppointmentRequest represents a request to update an appointment
+type UpdateAppointmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Appointment   *Appointment           `protobuf:"bytes,1,opt,name=appointment,proto3" json:"appointment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateAppointmentRequest) Reset() {
+	*x = UpdateAppointmentRequest{}
+	mi := &file_appointment_v1_appointment_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateAppointmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateAppointmentRequest) ProtoMessage() {}
+
+func (x *UpdateAppointmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_appointment_v1_appointment_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateAppointmentRequest.ProtoReflect.Descriptor instead.
+func (*UpdateAppointmentRequest) Descriptor() ([]byte, []int) {
+	return file_appointment_v1_appointment_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *UpdateAppointmentRequest) GetAppointment() *Appointment {
+	if x != nil {
+		return x.Appointment
+	}
+	return nil
+}
+
+// UpdateAppointmentResponse represents a response from updating an appointment
+type UpdateAppointmentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Appointment   *Appointment           `protobuf:"bytes,1,opt,name=appointment,proto3" json:"appointment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateAppointmentResponse) Reset() {
+	*x = UpdateAppointmentResponse{}
+	mi := &file_appointment_v1_appointment_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateAppointmentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateAppointmentResponse) ProtoMessage() {}
+
+func (x *UpdateAppointmentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_appointment_v1_appointment_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateAppointmentResponse.ProtoReflect.Descriptor instead.
+func (*UpdateAppointmentResponse) Descriptor() ([]byte, []int) {
+	return file_appointment_v1_appointment_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UpdateAppointmentResponse) GetAppointment() *Appointment {
+	if x != nil {
+		return x.Appointment
+	}
+	return nil
+}
+
 // CancelAppointmentRequest represents a request to cancel an appointment
 type CancelAppointmentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -428,7 +518,7 @@ type CancelAppointmentRequest struct {
 
 func (x *CancelAppointmentRequest) Reset() {
 	*x = CancelAppointmentRequest{}
-	mi := &file_appointment_v1_appointment_proto_msgTypes[7]
+	mi := &file_appointment_v1_appointment_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -440,7 +530,7 @@ func (x *CancelAppointmentRequest) String() string {
 func (*CancelAppointmentRequest) ProtoMessage() {}
 
 func (x *CancelAppointmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_appointment_v1_appointment_proto_msgTypes[7]
+	mi := &file_appointment_v1_appointment_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -453,7 +543,7 @@ func (x *CancelAppointmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelAppointmentRequest.ProtoReflect.Descriptor instead.
 func (*CancelAppointmentRequest) Descriptor() ([]byte, []int) {
-	return file_appointment_v1_appointment_proto_rawDescGZIP(), []int{7}
+	return file_appointment_v1_appointment_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CancelAppointmentRequest) GetId() string {
@@ -480,7 +570,7 @@ type CancelAppointmentResponse struct {
 
 func (x *CancelAppointmentResponse) Reset() {
 	*x = CancelAppointmentResponse{}
-	mi := &file_appointment_v1_appointment_proto_msgTypes[8]
+	mi := &file_appointment_v1_appointment_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -492,7 +582,7 @@ func (x *CancelAppointmentResponse) String() string {
 func (*CancelAppointmentResponse) ProtoMessage() {}
 
 func (x *CancelAppointmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_appointment_v1_appointment_proto_msgTypes[8]
+	mi := &file_appointment_v1_appointment_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -505,7 +595,7 @@ func (x *CancelAppointmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelAppointmentResponse.ProtoReflect.Descriptor instead.
 func (*CancelAppointmentResponse) Descriptor() ([]byte, []int) {
-	return file_appointment_v1_appointment_proto_rawDescGZIP(), []int{8}
+	return file_appointment_v1_appointment_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CancelAppointmentResponse) GetAppointment() *Appointment {
@@ -546,16 +636,21 @@ const file_appointment_v1_appointment_proto_rawDesc = "" +
 	"page_token\x18\x03 \x01(\tR\tpageToken\"\x83\x01\n" +
 	"\x18ListAppointmentsResponse\x12?\n" +
 	"\fappointments\x18\x01 \x03(\v2\x1b.appointment.v1.AppointmentR\fappointments\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"B\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"Y\n" +
+	"\x18UpdateAppointmentRequest\x12=\n" +
+	"\vappointment\x18\x01 \x01(\v2\x1b.appointment.v1.AppointmentR\vappointment\"Z\n" +
+	"\x19UpdateAppointmentResponse\x12=\n" +
+	"\vappointment\x18\x01 \x01(\v2\x1b.appointment.v1.AppointmentR\vappointment\"B\n" +
 	"\x18CancelAppointmentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\"Z\n" +
 	"\x19CancelAppointmentResponse\x12=\n" +
-	"\vappointment\x18\x01 \x01(\v2\x1b.appointment.v1.AppointmentR\vappointment2\xb0\x03\n" +
+	"\vappointment\x18\x01 \x01(\v2\x1b.appointment.v1.AppointmentR\vappointment2\x9a\x04\n" +
 	"\x12AppointmentService\x12h\n" +
 	"\x11CreateAppointment\x12(.appointment.v1.CreateAppointmentRequest\x1a).appointment.v1.CreateAppointmentResponse\x12_\n" +
 	"\x0eGetAppointment\x12%.appointment.v1.GetAppointmentRequest\x1a&.appointment.v1.GetAppointmentResponse\x12e\n" +
 	"\x10ListAppointments\x12'.appointment.v1.ListAppointmentsRequest\x1a(.appointment.v1.ListAppointmentsResponse\x12h\n" +
+	"\x11UpdateAppointment\x12(.appointment.v1.UpdateAppointmentRequest\x1a).appointment.v1.UpdateAppointmentResponse\x12h\n" +
 	"\x11CancelAppointment\x12(.appointment.v1.CancelAppointmentRequest\x1a).appointment.v1.CancelAppointmentResponseB\xcd\x01\n" +
 	"\x12com.appointment.v1B\x10AppointmentProtoP\x01ZLgithub.com/Sotiris-Bekiaris/careflow-mini/proto/appointment/v1;appointmentv1\xa2\x02\x03AXX\xaa\x02\x0eAppointment.V1\xca\x02\x0eAppointment\\V1\xe2\x02\x1aAppointment\\V1\\GPBMetadata\xea\x02\x0fAppointment::V1b\x06proto3"
 
@@ -571,7 +666,7 @@ func file_appointment_v1_appointment_proto_rawDescGZIP() []byte {
 	return file_appointment_v1_appointment_proto_rawDescData
 }
 
-var file_appointment_v1_appointment_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_appointment_v1_appointment_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_appointment_v1_appointment_proto_goTypes = []any{
 	(*Appointment)(nil),               // 0: appointment.v1.Appointment
 	(*CreateAppointmentRequest)(nil),  // 1: appointment.v1.CreateAppointmentRequest
@@ -580,31 +675,37 @@ var file_appointment_v1_appointment_proto_goTypes = []any{
 	(*GetAppointmentResponse)(nil),    // 4: appointment.v1.GetAppointmentResponse
 	(*ListAppointmentsRequest)(nil),   // 5: appointment.v1.ListAppointmentsRequest
 	(*ListAppointmentsResponse)(nil),  // 6: appointment.v1.ListAppointmentsResponse
-	(*CancelAppointmentRequest)(nil),  // 7: appointment.v1.CancelAppointmentRequest
-	(*CancelAppointmentResponse)(nil), // 8: appointment.v1.CancelAppointmentResponse
-	(*timestamppb.Timestamp)(nil),     // 9: google.protobuf.Timestamp
+	(*UpdateAppointmentRequest)(nil),  // 7: appointment.v1.UpdateAppointmentRequest
+	(*UpdateAppointmentResponse)(nil), // 8: appointment.v1.UpdateAppointmentResponse
+	(*CancelAppointmentRequest)(nil),  // 9: appointment.v1.CancelAppointmentRequest
+	(*CancelAppointmentResponse)(nil), // 10: appointment.v1.CancelAppointmentResponse
+	(*timestamppb.Timestamp)(nil),     // 11: google.protobuf.Timestamp
 }
 var file_appointment_v1_appointment_proto_depIdxs = []int32{
-	9,  // 0: appointment.v1.Appointment.start:type_name -> google.protobuf.Timestamp
-	9,  // 1: appointment.v1.Appointment.end:type_name -> google.protobuf.Timestamp
+	11, // 0: appointment.v1.Appointment.start:type_name -> google.protobuf.Timestamp
+	11, // 1: appointment.v1.Appointment.end:type_name -> google.protobuf.Timestamp
 	0,  // 2: appointment.v1.CreateAppointmentRequest.appointment:type_name -> appointment.v1.Appointment
 	0,  // 3: appointment.v1.CreateAppointmentResponse.appointment:type_name -> appointment.v1.Appointment
 	0,  // 4: appointment.v1.GetAppointmentResponse.appointment:type_name -> appointment.v1.Appointment
 	0,  // 5: appointment.v1.ListAppointmentsResponse.appointments:type_name -> appointment.v1.Appointment
-	0,  // 6: appointment.v1.CancelAppointmentResponse.appointment:type_name -> appointment.v1.Appointment
-	1,  // 7: appointment.v1.AppointmentService.CreateAppointment:input_type -> appointment.v1.CreateAppointmentRequest
-	3,  // 8: appointment.v1.AppointmentService.GetAppointment:input_type -> appointment.v1.GetAppointmentRequest
-	5,  // 9: appointment.v1.AppointmentService.ListAppointments:input_type -> appointment.v1.ListAppointmentsRequest
-	7,  // 10: appointment.v1.AppointmentService.CancelAppointment:input_type -> appointment.v1.CancelAppointmentRequest
-	2,  // 11: appointment.v1.AppointmentService.CreateAppointment:output_type -> appointment.v1.CreateAppointmentResponse
-	4,  // 12: appointment.v1.AppointmentService.GetAppointment:output_type -> appointment.v1.GetAppointmentResponse
-	6,  // 13: appointment.v1.AppointmentService.ListAppointments:output_type -> appointment.v1.ListAppointmentsResponse
-	8,  // 14: appointment.v1.AppointmentService.CancelAppointment:output_type -> appointment.v1.CancelAppointmentResponse
-	11, // [11:15] is the sub-list for method output_type
-	7,  // [7:11] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	0,  // 6: appointment.v1.UpdateAppointmentRequest.appointment:type_name -> appointment.v1.Appointment
+	0,  // 7: appointment.v1.UpdateAppointmentResponse.appointment:type_name -> appointment.v1.Appointment
+	0,  // 8: appointment.v1.CancelAppointmentResponse.appointment:type_name -> appointment.v1.Appointment
+	1,  // 9: appointment.v1.AppointmentService.CreateAppointment:input_type -> appointment.v1.CreateAppointmentRequest
+	3,  // 10: appointment.v1.AppointmentService.GetAppointment:input_type -> appointment.v1.GetAppointmentRequest
+	5,  // 11: appointment.v1.AppointmentService.ListAppointments:input_type -> appointment.v1.ListAppointmentsRequest
+	7,  // 12: appointment.v1.AppointmentService.UpdateAppointment:input_type -> appointment.v1.UpdateAppointmentRequest
+	9,  // 13: appointment.v1.AppointmentService.CancelAppointment:input_type -> appointment.v1.CancelAppointmentRequest
+	2,  // 14: appointment.v1.AppointmentService.CreateAppointment:output_type -> appointment.v1.CreateAppointmentResponse
+	4,  // 15: appointment.v1.AppointmentService.GetAppointment:output_type -> appointment.v1.GetAppointmentResponse
+	6,  // 16: appointment.v1.AppointmentService.ListAppointments:output_type -> appointment.v1.ListAppointmentsResponse
+	8,  // 17: appointment.v1.AppointmentService.UpdateAppointment:output_type -> appointment.v1.UpdateAppointmentResponse
+	10, // 18: appointment.v1.AppointmentService.CancelAppointment:output_type -> appointment.v1.CancelAppointmentResponse
+	14, // [14:19] is the sub-list for method output_type
+	9,  // [9:14] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_appointment_v1_appointment_proto_init() }
@@ -618,7 +719,7 @@ func file_appointment_v1_appointment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_appointment_v1_appointment_proto_rawDesc), len(file_appointment_v1_appointment_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

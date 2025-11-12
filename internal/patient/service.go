@@ -206,8 +206,8 @@ func (s *service) ListPatients(ctx context.Context, req *patientv1.ListPatientsR
 		_, _ = fmt.Sscanf(req.PageToken, "%d", &offset)
 	}
 
-	// Get from repository
-	fhirPatients, err := s.repo.List(ctx, pageSize+1, offset) // Get one extra to check for next page
+	// Get from repository with optional name filter
+	fhirPatients, err := s.repo.List(ctx, pageSize+1, offset, req.Name) // Get one extra to check for next page
 	if err != nil {
 		return nil, fmt.Errorf("failed to list patients: %w", err)
 	}

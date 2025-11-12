@@ -17,6 +17,9 @@ service AppointmentService {
   // ListAppointments lists appointments
   rpc ListAppointments(ListAppointmentsRequest) returns (ListAppointmentsResponse);
 
+  // UpdateAppointment updates an existing appointment
+  rpc UpdateAppointment(UpdateAppointmentRequest) returns (UpdateAppointmentResponse);
+
   // CancelAppointment cancels an appointment
   rpc CancelAppointment(CancelAppointmentRequest) returns (CancelAppointmentResponse);
 }
@@ -64,6 +67,16 @@ message ListAppointmentsRequest {
 message ListAppointmentsResponse {
   repeated Appointment appointments = 1;
   string next_page_token = 2;
+}
+
+// UpdateAppointmentRequest represents a request to update an appointment
+message UpdateAppointmentRequest {
+  Appointment appointment = 1;
+}
+
+// UpdateAppointmentResponse represents a response from updating an appointment
+message UpdateAppointmentResponse {
+  Appointment appointment = 1;
 }
 
 // CancelAppointmentRequest represents a request to cancel an appointment

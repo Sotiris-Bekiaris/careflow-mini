@@ -419,9 +419,11 @@ func (s *server) listPatientsHandler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	pageSize := query.Get("pageSize")
 	pageToken := query.Get("pageToken")
+	name := query.Get("name")
 
 	req := &patientv1.ListPatientsRequest{
 		PageToken: pageToken,
+		Name:      name,
 	}
 
 	if pageSize != "" {
@@ -713,6 +715,8 @@ func (s *server) appointmentByIDHandler(w http.ResponseWriter, r *http.Request) 
 	switch r.Method {
 	case http.MethodGet:
 		s.getAppointmentHandler(w, r.WithContext(ctx), id)
+	case http.MethodPut:
+		s.updateAppointmentHandler(w, r.WithContext(ctx), id)
 	case http.MethodDelete:
 		s.cancelAppointmentHandler(w, r.WithContext(ctx), id)
 	default:
@@ -772,6 +776,45 @@ func (s *server) getAppointmentHandler(w http.ResponseWriter, r *http.Request, i
 	respondJSON(w, http.StatusOK, resultAppointment)
 }
 
+func (s *server) updateAppointmentHandler(w http.ResponseWriter, r *http.Request, id string) {
+	ctx, span := s.tracer.Start(r.Context(), "updateAppointment")
+	defer span.End()
+
+	// Parse request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Failed to read request body")
+		return
+	}
+	defer func() { _ = r.Body.Close() }()
+
+	var fhirAppointment fhir.Appointment
+	if err := json.Unmarshal(body, &fhirAppointment); err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid JSON: %v", err))
+		return
+	}
+
+	// Ensure the ID from the URL is set on the appointment
+	fhirAppointment.ID = id
+
+	// Convert FHIR to Proto
+	protoAppointment := fhirAppointmentToProto(&fhirAppointment)
+
+	// Call gRPC service
+	resp, err := s.appointmentClient.UpdateAppointment(ctx, &appointmentv1.UpdateAppointmentRequest{
+		Appointment: protoAppointment,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Convert Proto back to FHIR
+	resultAppointment := protoAppointmentToFHIR(resp.Appointment)
+
+	respondJSON(w, http.StatusOK, resultAppointment)
+}
+
 func (s *server) cancelAppointmentHandler(w http.ResponseWriter, r *http.Request, id string) {
 	ctx, span := s.tracer.Start(r.Context(), "cancelAppointment")
 	defer span.End()
@@ -821,22 +864,26 @@ func (s *server) listAppointmentsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Convert Proto appointments to FHIR
-	fhirAppointments := make([]fhir.Appointment, len(resp.Appointments))
+	// Convert Proto appointments to FHIR and wrap in bundle entries
+	bundleEntries := make([]struct {
+		Resource fhir.Appointment `json:"resource"`
+	}, len(resp.Appointments))
 	for i, p := range resp.Appointments {
-		fhirAppointments[i] = *protoAppointmentToFHIR(p)
+		bundleEntries[i].Resource = *protoAppointmentToFHIR(p)
 	}
 
 	// Create FHIR Bundle response
 	bundle := struct {
-		ResourceType string             `json:"resourceType"`
-		Type         string             `json:"type"`
-		Entry        []fhir.Appointment `json:"entry"`
-		NextLink     string             `json:"link,omitempty"`
+		ResourceType string `json:"resourceType"`
+		Type         string `json:"type"`
+		Entry        []struct {
+			Resource fhir.Appointment `json:"resource"`
+		} `json:"entry"`
+		NextLink string `json:"link,omitempty"`
 	}{
 		ResourceType: "Bundle",
 		Type:         "searchset",
-		Entry:        fhirAppointments,
+		Entry:        bundleEntries,
 		NextLink:     resp.NextPageToken,
 	}
 
@@ -900,8 +947,8 @@ func protoAppointmentToFHIR(p *appointmentv1.Appointment) *fhir.Appointment {
 	if p.PatientId != "" {
 		f.Participant = append(f.Participant, fhir.Participant{
 			Actor: fhir.Reference{
-				Reference: p.PatientId,
-				Display:   "Patient",
+				Reference: "Patient/" + p.PatientId,
+				Display:   "Patient " + p.PatientId,
 			},
 			Status: "accepted",
 		})
@@ -910,8 +957,8 @@ func protoAppointmentToFHIR(p *appointmentv1.Appointment) *fhir.Appointment {
 	if p.PractitionerId != "" {
 		f.Participant = append(f.Participant, fhir.Participant{
 			Actor: fhir.Reference{
-				Reference: p.PractitionerId,
-				Display:   "Practitioner",
+				Reference: "Practitioner/" + p.PractitionerId,
+				Display:   "Practitioner " + p.PractitionerId,
 			},
 			Status: "accepted",
 		})

@@ -32,8 +32,7 @@ export const useAppointmentStore = defineStore('appointment', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      appointments.value = await appointmentService.listAppointments()
+appointments.value = await appointmentService.listAppointments()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch appointments'
       console.error('Error fetching appointments:', err)
@@ -46,8 +45,7 @@ export const useAppointmentStore = defineStore('appointment', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      currentAppointment.value = await appointmentService.getAppointment(id)
+currentAppointment.value = await appointmentService.getAppointment(id)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch appointment'
       console.error('Error fetching appointment:', err)
@@ -60,8 +58,7 @@ export const useAppointmentStore = defineStore('appointment', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      const newAppointment = await appointmentService.createAppointment(appointment)
+const newAppointment = await appointmentService.createAppointment(appointment)
       appointments.value.push(newAppointment)
       return newAppointment
     } catch (err) {
@@ -77,8 +74,7 @@ export const useAppointmentStore = defineStore('appointment', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      const updated = await appointmentService.updateAppointment(id, updates)
+const updated = await appointmentService.updateAppointment(id, updates)
       const index = appointments.value.findIndex(a => a.id === id)
       if (index !== -1) {
         appointments.value[index] = updated
@@ -100,8 +96,7 @@ export const useAppointmentStore = defineStore('appointment', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      await appointmentService.deleteAppointment(id)
+await appointmentService.deleteAppointment(id)
       appointments.value = appointments.value.filter(a => a.id !== id)
       if (currentAppointment.value?.id === id) {
         currentAppointment.value = null

@@ -92,6 +92,7 @@ message DeletePatientResponse {}
 message ListPatientsRequest {
   int32 page_size = 1;
   string page_token = 2;
+  string name = 3; // Optional name filter (searches family and given names)
 }
 
 // ListPatientsResponse represents a response from listing patients

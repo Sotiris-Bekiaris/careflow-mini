@@ -22,6 +22,7 @@ const (
 	AppointmentService_CreateAppointment_FullMethodName = "/appointment.v1.AppointmentService/CreateAppointment"
 	AppointmentService_GetAppointment_FullMethodName    = "/appointment.v1.AppointmentService/GetAppointment"
 	AppointmentService_ListAppointments_FullMethodName  = "/appointment.v1.AppointmentService/ListAppointments"
+	AppointmentService_UpdateAppointment_FullMethodName = "/appointment.v1.AppointmentService/UpdateAppointment"
 	AppointmentService_CancelAppointment_FullMethodName = "/appointment.v1.AppointmentService/CancelAppointment"
 )
 
@@ -37,6 +38,8 @@ type AppointmentServiceClient interface {
 	GetAppointment(ctx context.Context, in *GetAppointmentRequest, opts ...grpc.CallOption) (*GetAppointmentResponse, error)
 	// ListAppointments lists appointments
 	ListAppointments(ctx context.Context, in *ListAppointmentsRequest, opts ...grpc.CallOption) (*ListAppointmentsResponse, error)
+	// UpdateAppointment updates an existing appointment
+	UpdateAppointment(ctx context.Context, in *UpdateAppointmentRequest, opts ...grpc.CallOption) (*UpdateAppointmentResponse, error)
 	// CancelAppointment cancels an appointment
 	CancelAppointment(ctx context.Context, in *CancelAppointmentRequest, opts ...grpc.CallOption) (*CancelAppointmentResponse, error)
 }
@@ -79,6 +82,16 @@ func (c *appointmentServiceClient) ListAppointments(ctx context.Context, in *Lis
 	return out, nil
 }
 
+func (c *appointmentServiceClient) UpdateAppointment(ctx context.Context, in *UpdateAppointmentRequest, opts ...grpc.CallOption) (*UpdateAppointmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateAppointmentResponse)
+	err := c.cc.Invoke(ctx, AppointmentService_UpdateAppointment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *appointmentServiceClient) CancelAppointment(ctx context.Context, in *CancelAppointmentRequest, opts ...grpc.CallOption) (*CancelAppointmentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CancelAppointmentResponse)
@@ -101,6 +114,8 @@ type AppointmentServiceServer interface {
 	GetAppointment(context.Context, *GetAppointmentRequest) (*GetAppointmentResponse, error)
 	// ListAppointments lists appointments
 	ListAppointments(context.Context, *ListAppointmentsRequest) (*ListAppointmentsResponse, error)
+	// UpdateAppointment updates an existing appointment
+	UpdateAppointment(context.Context, *UpdateAppointmentRequest) (*UpdateAppointmentResponse, error)
 	// CancelAppointment cancels an appointment
 	CancelAppointment(context.Context, *CancelAppointmentRequest) (*CancelAppointmentResponse, error)
 	mustEmbedUnimplementedAppointmentServiceServer()
@@ -121,6 +136,9 @@ func (UnimplementedAppointmentServiceServer) GetAppointment(context.Context, *Ge
 }
 func (UnimplementedAppointmentServiceServer) ListAppointments(context.Context, *ListAppointmentsRequest) (*ListAppointmentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAppointments not implemented")
+}
+func (UnimplementedAppointmentServiceServer) UpdateAppointment(context.Context, *UpdateAppointmentRequest) (*UpdateAppointmentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAppointment not implemented")
 }
 func (UnimplementedAppointmentServiceServer) CancelAppointment(context.Context, *CancelAppointmentRequest) (*CancelAppointmentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelAppointment not implemented")
@@ -200,6 +218,24 @@ func _AppointmentService_ListAppointments_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AppointmentService_UpdateAppointment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAppointmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AppointmentServiceServer).UpdateAppointment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AppointmentService_UpdateAppointment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AppointmentServiceServer).UpdateAppointment(ctx, req.(*UpdateAppointmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AppointmentService_CancelAppointment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CancelAppointmentRequest)
 	if err := dec(in); err != nil {
@@ -236,6 +272,10 @@ var AppointmentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAppointments",
 			Handler:    _AppointmentService_ListAppointments_Handler,
+		},
+		{
+			MethodName: "UpdateAppointment",
+			Handler:    _AppointmentService_UpdateAppointment_Handler,
 		},
 		{
 			MethodName: "CancelAppointment",

@@ -157,7 +157,7 @@ make docker-up
 make docker-down
 
 # View logs
-docker-compose -f deploy/compose/docker-compose.yml logs -f
+docker compose -f deploy/compose/docker-compose.yml logs -f
 ```
 
 ### Kubernetes (Production)

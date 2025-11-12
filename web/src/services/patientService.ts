@@ -5,7 +5,6 @@ const PATIENT_ENDPOINT = '/fhir/Patient'
 
 /**
  * List all patients
- * TODO: Implement actual API call
  */
 export const listPatients = async (): Promise<Patient[]> => {
   try {
@@ -14,14 +13,12 @@ export const listPatients = async (): Promise<Patient[]> => {
     return response.data.entry || []
   } catch (error) {
     console.error('Failed to list patients:', error)
-    // Placeholder: Return empty array for now
     return []
   }
 }
 
 /**
  * Get a single patient by ID
- * TODO: Implement actual API call
  */
 export const getPatient = async (id: string): Promise<Patient> => {
   try {
@@ -35,7 +32,6 @@ export const getPatient = async (id: string): Promise<Patient> => {
 
 /**
  * Create a new patient
- * TODO: Implement actual API call
  */
 export const createPatient = async (patient: Omit<Patient, 'id' | 'meta'>): Promise<Patient> => {
   try {
@@ -49,7 +45,6 @@ export const createPatient = async (patient: Omit<Patient, 'id' | 'meta'>): Prom
 
 /**
  * Update an existing patient
- * TODO: Implement actual API call
  */
 export const updatePatient = async (id: string, updates: Partial<Patient>): Promise<Patient> => {
   try {
@@ -63,7 +58,6 @@ export const updatePatient = async (id: string, updates: Partial<Patient>): Prom
 
 /**
  * Delete a patient
- * TODO: Implement actual API call
  */
 export const deletePatient = async (id: string): Promise<void> => {
   try {
@@ -76,7 +70,6 @@ export const deletePatient = async (id: string): Promise<void> => {
 
 /**
  * Search patients by criteria
- * TODO: Implement actual API call
  */
 export const searchPatients = async (query: string): Promise<Patient[]> => {
   try {

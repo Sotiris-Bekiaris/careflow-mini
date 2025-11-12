@@ -49,6 +49,15 @@ func (h *Handler) ListAppointments(ctx context.Context, req *appointmentv1.ListA
 	return resp, nil
 }
 
+// UpdateAppointment implements AppointmentService.UpdateAppointment
+func (h *Handler) UpdateAppointment(ctx context.Context, req *appointmentv1.UpdateAppointmentRequest) (*appointmentv1.UpdateAppointmentResponse, error) {
+	resp, err := h.service.UpdateAppointment(ctx, req)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return resp, nil
+}
+
 // CancelAppointment implements AppointmentService.CancelAppointment
 func (h *Handler) CancelAppointment(ctx context.Context, req *appointmentv1.CancelAppointmentRequest) (*appointmentv1.CancelAppointmentResponse, error) {
 	resp, err := h.service.CancelAppointment(ctx, req)

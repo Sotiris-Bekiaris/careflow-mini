@@ -617,6 +617,7 @@ type ListPatientsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"` // Optional name filter (searches family and given names)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -661,6 +662,13 @@ func (x *ListPatientsRequest) GetPageSize() int32 {
 func (x *ListPatientsRequest) GetPageToken() string {
 	if x != nil {
 		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListPatientsRequest) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -761,11 +769,12 @@ const file_patient_v1_patient_proto_rawDesc = "" +
 	"\apatient\x18\x01 \x01(\v2\x13.patient.v1.PatientR\apatient\"&\n" +
 	"\x14DeletePatientRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeletePatientResponse\"Q\n" +
+	"\x15DeletePatientResponse\"e\n" +
 	"\x13ListPatientsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x02 \x01(\tR\tpageToken\"o\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"o\n" +
 	"\x14ListPatientsResponse\x12/\n" +
 	"\bpatients\x18\x01 \x03(\v2\x13.patient.v1.PatientR\bpatients\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken2\xb2\x03\n" +

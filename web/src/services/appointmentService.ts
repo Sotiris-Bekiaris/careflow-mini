@@ -5,7 +5,6 @@ const APPOINTMENT_ENDPOINT = '/fhir/Appointment'
 
 /**
  * List all appointments
- * TODO: Implement actual API call
  */
 export const listAppointments = async (): Promise<Appointment[]> => {
   try {
@@ -16,14 +15,12 @@ export const listAppointments = async (): Promise<Appointment[]> => {
     return response.data.entry?.map(entry => entry.resource) || []
   } catch (error) {
     console.error('Failed to list appointments:', error)
-    // Placeholder: Return empty array for now
     return []
   }
 }
 
 /**
  * Get a single appointment by ID
- * TODO: Implement actual API call
  */
 export const getAppointment = async (id: string): Promise<Appointment> => {
   try {
@@ -37,7 +34,6 @@ export const getAppointment = async (id: string): Promise<Appointment> => {
 
 /**
  * Create a new appointment
- * TODO: Implement actual API call
  */
 export const createAppointment = async (
   appointment: Omit<Appointment, 'id' | 'meta'>,
@@ -53,7 +49,6 @@ export const createAppointment = async (
 
 /**
  * Update an existing appointment
- * TODO: Implement actual API call
  */
 export const updateAppointment = async (
   id: string,
@@ -70,7 +65,6 @@ export const updateAppointment = async (
 
 /**
  * Delete an appointment
- * TODO: Implement actual API call
  */
 export const deleteAppointment = async (id: string): Promise<void> => {
   try {
@@ -83,12 +77,11 @@ export const deleteAppointment = async (id: string): Promise<void> => {
 
 /**
  * Get appointments for a patient
- * TODO: Implement actual API call
  */
 export const getPatientAppointments = async (patientId: string): Promise<Appointment[]> => {
   try {
     const response = await apiClient.get<{ entry: Array<{ resource: Appointment }> }>(
-      `${APPOINTMENT_ENDPOINT}?actor=${patientId}`,
+      `${APPOINTMENT_ENDPOINT}?patientId=${patientId}`,
     )
     return response.data.entry?.map(entry => entry.resource) || []
   } catch (error) {

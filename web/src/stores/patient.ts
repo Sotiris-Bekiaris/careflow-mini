@@ -26,8 +26,7 @@ export const usePatientStore = defineStore('patient', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      patients.value = await patientService.listPatients()
+patients.value = await patientService.listPatients()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch patients'
       console.error('Error fetching patients:', err)
@@ -40,8 +39,7 @@ export const usePatientStore = defineStore('patient', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      currentPatient.value = await patientService.getPatient(id)
+currentPatient.value = await patientService.getPatient(id)
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch patient'
       console.error('Error fetching patient:', err)
@@ -54,8 +52,7 @@ export const usePatientStore = defineStore('patient', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      const newPatient = await patientService.createPatient(patient)
+const newPatient = await patientService.createPatient(patient)
       patients.value.push(newPatient)
       return newPatient
     } catch (err) {
@@ -71,8 +68,7 @@ export const usePatientStore = defineStore('patient', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      const updated = await patientService.updatePatient(id, updates)
+const updated = await patientService.updatePatient(id, updates)
       const index = patients.value.findIndex(p => p.id === id)
       if (index !== -1) {
         patients.value[index] = updated
@@ -94,8 +90,7 @@ export const usePatientStore = defineStore('patient', () => {
     loading.value = true
     error.value = null
     try {
-      // TODO: Implement actual API call
-      await patientService.deletePatient(id)
+await patientService.deletePatient(id)
       patients.value = patients.value.filter(p => p.id !== id)
       if (currentPatient.value?.id === id) {
         currentPatient.value = null

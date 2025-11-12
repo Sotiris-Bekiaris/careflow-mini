@@ -27,7 +27,7 @@ fi
 echo "✓ Docker installed"
 
 # Check Docker Compose
-if ! command -v docker-compose &> /dev/null; then
+if ! docker compose version &> /dev/null; then
     echo "✗ Docker Compose is not installed. Please install Docker Compose."
     exit 1
 fi
@@ -56,7 +56,7 @@ echo "✓ Dependencies installed"
 
 echo ""
 echo "Starting infrastructure services..."
-docker-compose -f deploy/compose/docker-compose.yml up -d
+docker compose -f deploy/compose/docker-compose.yml up -d
 echo "✓ Infrastructure services started"
 
 echo ""

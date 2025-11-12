@@ -108,10 +108,53 @@
           </div>
           <v-divider></v-divider>
           <div class="panel__actions">
-            <v-btn variant="outlined" block prepend-icon="mdi-download">Export FHIR JSON</v-btn>
+            <v-btn variant="outlined" block prepend-icon="mdi-download" @click="handleExport">
+              Export FHIR JSON
+            </v-btn>
             <v-btn color="error" block prepend-icon="mdi-trash-can" @click="handleDelete">
               Delete patient
             </v-btn>
+          </div>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12">
+        <v-card class="panel">
+          <div class="panel__section">
+            <h3>Lab Results & Observations</h3>
+            <p v-if="observationStore.loading" class="text-muted">Loading observations...</p>
+            <p v-else-if="!observationStore.hasObservations" class="text-muted">
+              No lab results recorded for this patient.
+            </p>
+            <v-table v-else density="comfortable">
+              <thead>
+                <tr>
+                  <th>Test</th>
+                  <th>Result</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="observation in observationStore.observations" :key="observation.id">
+                  <td>
+                    <strong>{{ observation.code.text }}</strong>
+                  </td>
+                  <td>
+                    {{ observation.value.value }} {{ observation.value.unit }}
+                  </td>
+                  <td>
+                    <v-chip
+                      size="small"
+                      :color="observation.status === 'final' ? 'success' : 'warning'"
+                    >
+                      {{ observation.status }}
+                    </v-chip>
+                  </td>
+                  <td>{{ formatDateTime(observation.effectiveDateTime) }}</td>
+                </tr>
+              </tbody>
+            </v-table>
           </div>
         </v-card>
       </v-col>
@@ -139,6 +182,7 @@
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePatientStore } from '@/stores/patient'
+import { useObservationStore } from '@/stores/observation'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { formatDate, formatDateTime, patientFullName, primaryTelecom, primaryAddress } from '@/utils/formatters'
@@ -146,12 +190,29 @@ import { formatDate, formatDateTime, patientFullName, primaryTelecom, primaryAdd
 const route = useRoute()
 const router = useRouter()
 const patientStore = usePatientStore()
+const observationStore = useObservationStore()
 
 onMounted(async () => {
-  await patientStore.fetchPatientById(route.params.id as string)
+  const patientId = route.params.id as string
+  await patientStore.fetchPatientById(patientId)
+  await observationStore.fetchPatientObservations(patientId)
 })
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
+
+const handleExport = () => {
+  if (!patientStore.currentPatient) return
+  const jsonStr = JSON.stringify(patientStore.currentPatient, null, 2)
+  const blob = new Blob([jsonStr], { type: 'application/fhir+json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `patient-${patientStore.currentPatient.id}.json`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
 
 const handleDelete = async () => {
   if (!patientStore.currentPatient) return

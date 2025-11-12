@@ -17,7 +17,7 @@ type Repository interface {
 	Create(ctx context.Context, patient *fhir.Patient) error
 	GetByID(ctx context.Context, id string) (*fhir.Patient, error)
 	Update(ctx context.Context, patient *fhir.Patient) error
-	List(ctx context.Context, limit, offset int) ([]*fhir.Patient, error)
+	List(ctx context.Context, limit, offset int, nameFilter string) ([]*fhir.Patient, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -131,7 +131,7 @@ func (r *pgRepository) Update(ctx context.Context, patient *fhir.Patient) error 
 }
 
 // List retrieves a paginated list of patients.
-func (r *pgRepository) List(ctx context.Context, limit, offset int) ([]*fhir.Patient, error) {
+func (r *pgRepository) List(ctx context.Context, limit, offset int, nameFilter string) ([]*fhir.Patient, error) {
 	// Set default limit if not provided or invalid
 	if limit <= 0 {
 		limit = 10
@@ -140,15 +140,32 @@ func (r *pgRepository) List(ctx context.Context, limit, offset int) ([]*fhir.Pat
 		limit = 100 // Cap at 100 for performance
 	}
 
-	query := `
-		SELECT fhir_resource
-		FROM patient_svc.patients
-		WHERE active = true
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2
-	`
+	var query string
+	var args []interface{}
 
-	rows, err := r.pool.Query(ctx, query, limit, offset)
+	if nameFilter != "" {
+		// Filter by name using ILIKE for case-insensitive search
+		query = `
+			SELECT fhir_resource
+			FROM patient_svc.patients
+			WHERE active = true
+			  AND (family_name ILIKE $1 OR given_names::text ILIKE $1)
+			ORDER BY created_at DESC
+			LIMIT $2 OFFSET $3
+		`
+		args = []interface{}{"%" + nameFilter + "%", limit, offset}
+	} else {
+		query = `
+			SELECT fhir_resource
+			FROM patient_svc.patients
+			WHERE active = true
+			ORDER BY created_at DESC
+			LIMIT $1 OFFSET $2
+		`
+		args = []interface{}{limit, offset}
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list patients: %w", err)
 	}

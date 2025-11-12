@@ -169,6 +169,82 @@ func (s *Service) ListAppointments(ctx context.Context, req *appointmentv1.ListA
 	}, nil
 }
 
+// UpdateAppointment updates an existing appointment
+func (s *Service) UpdateAppointment(ctx context.Context, req *appointmentv1.UpdateAppointmentRequest) (*appointmentv1.UpdateAppointmentResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "appointment.UpdateAppointment")
+	defer span.End()
+
+	if req.Appointment == nil {
+		return nil, errors.New("appointment is required")
+	}
+
+	if req.Appointment.Id == "" {
+		return nil, errors.New("appointment ID is required")
+	}
+
+	// Validate required fields
+	if req.Appointment.PatientId == "" {
+		return nil, errors.New("patient_id is required")
+	}
+	if req.Appointment.Start == nil {
+		return nil, errors.New("start time is required")
+	}
+	if req.Appointment.End == nil {
+		return nil, errors.New("end time is required")
+	}
+
+	// Validate start time is before end time
+	startTime := req.Appointment.Start.AsTime()
+	endTime := req.Appointment.End.AsTime()
+	if !startTime.Before(endTime) {
+		return nil, errors.New("start time must be before end time")
+	}
+
+	span.SetAttributes(
+		attribute.String("appointment.id", req.Appointment.Id),
+		attribute.String("appointment.patient_id", req.Appointment.PatientId),
+	)
+
+	// Convert proto to FHIR
+	fhirAppointment := protoToFHIR(req.Appointment)
+
+	// Update in database
+	updatedAppointment, err := s.repo.UpdateAppointment(ctx, fhirAppointment)
+	if err != nil {
+		span.RecordError(err)
+		return nil, fmt.Errorf("failed to update appointment: %w", err)
+	}
+
+	// Publish event (non-blocking)
+	go func() {
+		event := events.Event{
+			ID:        updatedAppointment.ID,
+			Type:      events.AppointmentUpdated,
+			Timestamp: time.Now().UTC(),
+			Source:    "appointment-svc",
+			Data: map[string]interface{}{
+				"id":              updatedAppointment.ID,
+				"patient_id":      req.Appointment.PatientId,
+				"practitioner_id": req.Appointment.PractitionerId,
+				"start":           updatedAppointment.Start,
+				"end":             updatedAppointment.End,
+				"status":          updatedAppointment.Status,
+			},
+		}
+		if err := s.publisher.Publish(event); err != nil {
+			// Log error but don't fail the request
+			fmt.Printf("Failed to publish appointment.updated event: %v\n", err)
+		}
+	}()
+
+	// Convert back to proto for response
+	protoAppointment := fhirToProto(updatedAppointment)
+
+	return &appointmentv1.UpdateAppointmentResponse{
+		Appointment: protoAppointment,
+	}, nil
+}
+
 // CancelAppointment cancels an appointment
 func (s *Service) CancelAppointment(ctx context.Context, req *appointmentv1.CancelAppointmentRequest) (*appointmentv1.CancelAppointmentResponse, error) {
 	ctx, span := s.tracer.Start(ctx, "appointment.CancelAppointment")
