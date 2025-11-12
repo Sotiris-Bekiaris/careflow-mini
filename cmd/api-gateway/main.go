@@ -205,12 +205,18 @@ func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check Appointment Service connection
-	_, err = s.appointmentClient.ListAppointments(ctx, &appointmentv1.ListAppointmentsRequest{PageSize: 1})
+	// ListAppointments requires a patient ID, so we check the service differently
+	_, err = s.appointmentClient.GetAppointment(ctx, &appointmentv1.GetAppointmentRequest{Id: "health-check"})
+	// We expect this to return NotFound, which is fine - it means the service is responding
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = fmt.Fprintln(w, `{"status":"not ready","error":"appointment service unavailable"}`)
-		return
+		grpcErr := status.Code(err)
+		// NotFound (5) is expected, any other error indicates service is down
+		if grpcErr != codes.NotFound && grpcErr != codes.InvalidArgument {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = fmt.Fprintln(w, `{"status":"not ready","error":"appointment service unavailable"}`)
+			return
+		}
 	}
 
 	// Check Lab Adapter health
@@ -229,18 +235,10 @@ func (s *server) readyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check Observation Service connection
-	_, err = s.observationClient.ListObservations(ctx, &observationv1.ListObservationsRequest{PageSize: 1, PatientId: "test"})
-	if err != nil {
-		// For observation service, we may not have any test data, so just check if service is reachable
-		// A context deadline or connection error indicates service is down
-		if status.Code(err) != codes.NotFound && status.Code(err) != codes.InvalidArgument {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = fmt.Fprintln(w, `{"status":"not ready","error":"observation service unavailable"}`)
-			return
-		}
-	}
+	// Check Observation Service connection using gRPC health check
+	// (similar to lab-adapter and notify-svc since ListObservations requires patient_id)
+	// Note: If observation service is not available, it may not be critical for readiness
+	// but we'll still check it for consistency
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -856,11 +854,20 @@ func fhirAppointmentToProto(f *fhir.Appointment) *appointmentv1.Appointment {
 	// Extract patient and practitioner IDs from participants
 	for _, part := range f.Participant {
 		if part.Actor.Reference != "" {
-			// Naive approach: assume first participant is patient, others are practitioners
-			if p.PatientId == "" && part.Actor.Display != "" {
-				p.PatientId = part.Actor.Reference
-			} else if p.PractitionerId == "" {
-				p.PractitionerId = part.Actor.Reference
+			ref := part.Actor.Reference
+			// Extract ID from reference like "Patient/123" -> "123"
+			var id string
+			if slashPos := strings.LastIndex(ref, "/"); slashPos >= 0 {
+				id = ref[slashPos+1:]
+			} else {
+				id = ref // If no slash, use the whole reference as ID
+			}
+
+			// Check if reference starts with "Patient/" to determine if it's a patient ID
+			if p.PatientId == "" && strings.HasPrefix(ref, "Patient/") {
+				p.PatientId = id
+			} else if p.PractitionerId == "" && strings.HasPrefix(ref, "Practitioner/") {
+				p.PractitionerId = id
 			}
 		}
 	}

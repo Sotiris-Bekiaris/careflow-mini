@@ -29,6 +29,7 @@ build:
 	@go build -o bin/patient-svc ./cmd/patient-svc
 	@go build -o bin/appointment-svc ./cmd/appointment-svc
 	@go build -o bin/lab-adapter ./cmd/lab-adapter
+	@go build -o bin/observation-svc ./cmd/observation-svc
 	@go build -o bin/notify-svc ./cmd/notify-svc
 	@echo "Build complete!"
 

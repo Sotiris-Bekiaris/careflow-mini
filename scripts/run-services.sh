@@ -71,6 +71,7 @@ start_service() {
 start_service "patient-svc" "./bin/patient-svc" "50051"
 start_service "appointment-svc" "./bin/appointment-svc" "50052"
 start_service "lab-adapter" "./bin/lab-adapter" "50053"
+start_service "observation-svc" "./bin/observation-svc" "50055"
 start_service "notify-svc" "./bin/notify-svc" "50054"
 
 # Wait a moment for backend services to start

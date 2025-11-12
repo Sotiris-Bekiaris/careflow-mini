@@ -9,9 +9,9 @@ const PATIENT_ENDPOINT = '/fhir/Patient'
  */
 export const listPatients = async (): Promise<Patient[]> => {
   try {
-    const response = await apiClient.get<{ entry: Array<{ resource: Patient }> }>(PATIENT_ENDPOINT)
-    // FHIR bundle response handling
-    return response.data.entry?.map(entry => entry.resource) || []
+    const response = await apiClient.get<{ entry: Patient[] }>(PATIENT_ENDPOINT)
+    // FHIR bundle response handling - patients are returned directly in entry array
+    return response.data.entry || []
   } catch (error) {
     console.error('Failed to list patients:', error)
     // Placeholder: Return empty array for now
@@ -80,10 +80,10 @@ export const deletePatient = async (id: string): Promise<void> => {
  */
 export const searchPatients = async (query: string): Promise<Patient[]> => {
   try {
-    const response = await apiClient.get<{ entry: Array<{ resource: Patient }> }>(
+    const response = await apiClient.get<{ entry: Patient[] }>(
       `${PATIENT_ENDPOINT}?name=${query}`,
     )
-    return response.data.entry?.map(entry => entry.resource) || []
+    return response.data.entry || []
   } catch (error) {
     console.error('Failed to search patients:', error)
     return []
